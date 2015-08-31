@@ -1,0 +1,98 @@
+
+fix mtrr support with x86 cpu types
+
+
+ tiny-mpm/arch/i386/kernel/cpu/mtrr/Makefile |    6 +++---
+ tiny-mpm/arch/i386/kernel/cpu/mtrr/cyrix.c  |    2 +-
+ tiny-mpm/arch/i386/kernel/cpu/mtrr/main.c   |   19 +++++++++++++++++--
+ 3 files changed, 21 insertions(+), 6 deletions(-)
+
+Index: linux-2.6.16.19/arch/i386/kernel/cpu/mtrr/Makefile
+===================================================================
+--- linux-2.6.16.19.orig/arch/i386/kernel/cpu/mtrr/Makefile	2006-06-23 17:05:11.000000000 -0700
++++ linux-2.6.16.19/arch/i386/kernel/cpu/mtrr/Makefile	2006-06-23 17:06:28.000000000 -0700
+@@ -1,5 +1,5 @@
+ obj-y		:= main.o if.o generic.o state.o
+-obj-y		+= amd.o
+-obj-y		+= cyrix.o
+-obj-y		+= centaur.o
++obj-$(CONFIG_CPU_SUP_AMD)	+= amd.o
++obj-$(CONFIG_CPU_SUP_CYRIX)	+= cyrix.o
++obj-$(CONFIG_CPU_SUP_CENTAUR)	+= centaur.o
+ 
+Index: linux-2.6.16.19/arch/i386/kernel/cpu/mtrr/cyrix.c
+===================================================================
+--- linux-2.6.16.19.orig/arch/i386/kernel/cpu/mtrr/cyrix.c	2006-06-23 17:05:11.000000000 -0700
++++ linux-2.6.16.19/arch/i386/kernel/cpu/mtrr/cyrix.c	2006-06-23 17:06:28.000000000 -0700
+@@ -5,7 +5,7 @@
+ #include <asm/io.h>
+ #include "mtrr.h"
+ 
+-int arr3_protected;
++extern int arr3_protected;
+ 
+ static void
+ cyrix_get_arr(unsigned int reg, unsigned long *base,
+Index: linux-2.6.16.19/arch/i386/kernel/cpu/mtrr/main.c
+===================================================================
+--- linux-2.6.16.19.orig/arch/i386/kernel/cpu/mtrr/main.c	2006-06-23 17:05:11.000000000 -0700
++++ linux-2.6.16.19/arch/i386/kernel/cpu/mtrr/main.c	2006-06-23 17:06:28.000000000 -0700
+@@ -58,7 +58,7 @@
+ static void set_mtrr(unsigned int reg, unsigned long base,
+ 		     unsigned long size, mtrr_type type);
+ 
+-extern int arr3_protected;
++int arr3_protected;
+ 
+ void set_mtrr_ops(struct mtrr_ops * ops)
+ {
+@@ -543,9 +543,15 @@
+ 
+ static void __init init_ifs(void)
+ {
++#ifdef CONFIG_CPU_SUP_AMD
+ 	amd_init_mtrr();
++#endif
++#ifdef CONFIG_CPU_SUP_CYRIX
+ 	cyrix_init_mtrr();
++#endif
++#ifdef CONFIG_CPU_SUP_CENTAUR
+ 	centaur_init_mtrr();
++#endif
+ }
+ 
+ /* The suspend/resume methods are only for CPU without MTRR. CPU using generic
+@@ -643,6 +649,7 @@
+ 		}
+ 	} else {
+ 		switch (boot_cpu_data.x86_vendor) {
++#ifdef CONFIG_CPU_SUP_AMD
+ 		case X86_VENDOR_AMD:
+ 			if (cpu_has_k6_mtrr) {
+ 				/* Pre-Athlon (K6) AMD CPU MTRRs */
+@@ -651,6 +658,8 @@
+ 				size_and_mask = 0;
+ 			}
+ 			break;
++#endif
++#ifdef CONFIG_CPU_SUP_CENTAUR
+ 		case X86_VENDOR_CENTAUR:
+ 			if (cpu_has_centaur_mcr) {
+ 				mtrr_if = mtrr_ops[X86_VENDOR_CENTAUR];
+@@ -658,6 +667,8 @@
+ 				size_and_mask = 0;
+ 			}
+ 			break;
++#endif
++#ifdef CONFIG_CPU_SUP_CYRIX
+ 		case X86_VENDOR_CYRIX:
+ 			if (cpu_has_cyrix_arr) {
+ 				mtrr_if = mtrr_ops[X86_VENDOR_CYRIX];
+@@ -665,6 +676,7 @@
+ 				size_and_mask = 0;
+ 			}
+ 			break;
++#endif
+ 		default:
+ 			break;
+ 		}

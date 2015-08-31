@@ -1,0 +1,24 @@
+inflate: replace call to memzero with simple loop
+
+This is the only user of memzero in the inflate code and it's only for
+16 bytes. Removing this lets us drop a copy of memzero from most
+lib/inflate users.
+
+Signed-off-by: Matt Mackall <mpm@selenic.com>
+
+Index: linux-2.6.16.19/lib/inflate.c
+===================================================================
+--- linux-2.6.16.19.orig/lib/inflate.c	2006-06-23 17:06:31.000000000 -0700
++++ linux-2.6.16.19/lib/inflate.c	2006-06-23 17:06:31.000000000 -0700
+@@ -367,8 +367,10 @@
+ 
+ 	DEBG("huft1 ");
+ 
++	for (i = 0; i < BMAX + 1; i++)
++		c[i] = 0;
++
+ 	/* Generate counts for each bit length */
+-	memzero(c, sizeof(c));
+ 	p = b;
+ 	i = n;
+ 	do {

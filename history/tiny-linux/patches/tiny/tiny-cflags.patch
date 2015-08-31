@@ -1,0 +1,57 @@
+
+configurable CFLAGS override
+
+
+ tiny-mpm/arch/i386/Makefile |    4 ++++
+ tiny-mpm/init/Kconfig       |   14 ++++++++++++++
+ 2 files changed, 18 insertions(+)
+
+Index: tiny/arch/i386/Makefile
+===================================================================
+--- tiny.orig/arch/i386/Makefile	2005-10-10 17:39:10.000000000 -0700
++++ tiny/arch/i386/Makefile	2005-10-10 17:41:44.000000000 -0700
+@@ -35,6 +35,10 @@ CFLAGS += -pipe -msoft-float
+ CFLAGS += $(call cc-option,-mpreferred-stack-boundary=2)
+ 
+ align := $(cc-option-align)
++
++ifdef CONFIG_TINY_CFLAGS
++cflags-y += $(shell echo $(CONFIG_TINY_CFLAGS_VAL))
++else
+ cflags-$(CONFIG_M386)		+= -march=i386
+ cflags-$(CONFIG_M486)		+= -march=i486
+ cflags-$(CONFIG_M586)		+= -march=i586
+@@ -64,6 +68,8 @@ cflags-$(CONFIG_X86_ELAN)	+= -march=i486
+ # Geode GX1 support
+ cflags-$(CONFIG_MGEODEGX1)		+= $(call cc-option,-march=pentium-mmx,-march=i486)
+ 
++endif
++
+ # -mregparm=3 works ok on gcc-3.0 and later
+ #
+ GCC_VERSION			:= $(call cc-version)
+Index: tiny/init/Kconfig
+===================================================================
+--- tiny.orig/init/Kconfig	2005-10-10 17:41:17.000000000 -0700
++++ tiny/init/Kconfig	2005-10-10 17:41:44.000000000 -0700
+@@ -405,6 +405,20 @@ config CC_ALIGN_JUMPS
+ 	  no dummy operations need be executed.
+ 	  Zero means use compiler's default.
+ 
++config TINY_CFLAGS
++	default n
++	bool "Set compiler arch flags for small 386 code" if EMBEDDED
++	help
++	  This allows user to replace the architecture CFLAGS despite the arch
++	  setting in an attempt to build smaller code.
++
++config TINY_CFLAGS_VAL
++	depends TINY_CFLAGS
++	default "-march=i386"
++	string "Arch CFLAGS"
++	help
++	  Enter CFLAGS to override ARCH defaults.
++
+ endmenu		# General setup
+ 
+ config TINY_SHMEM

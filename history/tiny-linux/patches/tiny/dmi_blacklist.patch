@@ -1,0 +1,95 @@
+
+configurable dmi blacklist support
+
+
+ tiny-mpm/arch/i386/kernel/Makefile     |    3 ++-
+ tiny-mpm/arch/i386/kernel/i386_ksyms.c |    2 ++
+ tiny-mpm/arch/i386/kernel/setup.c      |    2 ++
+ tiny-mpm/init/Kconfig                  |   11 +++++++++++
+ 4 files changed, 17 insertions(+), 1 deletion(-)
+
+Index: linux-2.6.16.19/arch/i386/kernel/Makefile
+===================================================================
+--- linux-2.6.16.19.orig/arch/i386/kernel/Makefile	2006-06-23 17:06:26.000000000 -0700
++++ linux-2.6.16.19/arch/i386/kernel/Makefile	2006-06-23 17:06:28.000000000 -0700
+@@ -6,7 +6,7 @@
+ 
+ obj-y	:= process.o semaphore.o signal.o entry.o traps.o irq.o \
+ 		ptrace.o time.o ioport.o ldt.o setup.o i8259.o sys_i386.o \
+-		pci-dma.o i386_ksyms.o i387.o dmi_scan.o \
++		pci-dma.o i386_ksyms.o i387.o \
+ 		quirks.o i8237.o topology.o
+ 
+ obj-y				+= cpu/
+@@ -39,6 +39,7 @@
+ obj-$(CONFIG_VM86)		+= vm86.o
+ obj-$(CONFIG_EARLY_PRINTK)	+= early_printk.o
+ obj-$(CONFIG_BOOTFLAG)		+= bootflag.o
++obj-$(CONFIG_DMI_SCAN)		+= dmi_scan.o
+ 
+ 
+ EXTRA_AFLAGS   := -traditional
+Index: linux-2.6.16.19/arch/i386/kernel/setup.c
+===================================================================
+--- linux-2.6.16.19.orig/arch/i386/kernel/setup.c	2006-06-23 17:05:11.000000000 -0700
++++ linux-2.6.16.19/arch/i386/kernel/setup.c	2006-06-23 17:06:28.000000000 -0700
+@@ -1591,7 +1591,9 @@
+ #endif
+ 
+ 
++#ifdef CONFIG_DMI_SCAN
+ 	dmi_scan_machine();
++#endif
+ 
+ #ifdef CONFIG_X86_GENERICARCH
+ 	generic_apic_probe(*cmdline_p);
+Index: linux-2.6.16.19/arch/x86_64/kernel/setup.c
+===================================================================
+--- linux-2.6.16.19.orig/arch/x86_64/kernel/setup.c	2006-06-23 17:05:11.000000000 -0700
++++ linux-2.6.16.19/arch/x86_64/kernel/setup.c	2006-06-23 17:06:28.000000000 -0700
+@@ -1409,7 +1409,9 @@
+ 
+ static int __init run_dmi_scan(void)
+ {
++#ifdef CONFIG_DMI_SCAN
+ 	dmi_scan_machine();
++#endif
+ 	return 0;
+ }
+ core_initcall(run_dmi_scan);
+Index: linux-2.6.16.19/include/linux/dmi.h
+===================================================================
+--- linux-2.6.16.19.orig/include/linux/dmi.h	2006-06-23 17:05:11.000000000 -0700
++++ linux-2.6.16.19/include/linux/dmi.h	2006-06-23 17:06:28.000000000 -0700
+@@ -67,7 +67,9 @@
+ extern char * dmi_get_system_info(int field);
+ extern struct dmi_device * dmi_find_device(int type, const char *name,
+ 	struct dmi_device *from);
++#ifdef CONFIG_DMI_SCAN
+ extern void dmi_scan_machine(void);
++#endif
+ 
+ #else
+ 
+Index: linux-2.6.16.19/init/Kconfig
+===================================================================
+--- linux-2.6.16.19.orig/init/Kconfig	2006-06-23 17:06:26.000000000 -0700
++++ linux-2.6.16.19/init/Kconfig	2006-06-23 17:06:28.000000000 -0700
+@@ -609,6 +609,17 @@
+           this feature if you are only need legacy serial support.
+ 	  Saves about 9K.
+ 
++config DMI_SCAN
++	depends X86
++	default y
++	bool "Enabled DMI scanning" if EMBEDDED
++	help
++          Enabled scanning of DMI to identify machine quirks. Say Y
++          here unless you have verified that your setup is not
++          affected by entries in the DMI blacklist. Required by PNP
++          BIOS code. Disabling scanning saves about 5k of
++          initialization code.
++
+ endmenu		# General setup
+ 
+ config CRC32_CALC

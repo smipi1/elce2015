@@ -1,0 +1,412 @@
+inflate: remove legacy type definitions from callers
+
+This replaces the legacy zlib typedefs and usage with kernel types in
+all the inflate users.
+
+Signed-off-by: Matt Mackall <mpm@selenic.com>
+
+Index: alp-linux/arch/alpha/boot/misc.c
+===================================================================
+--- alp-linux.orig/arch/alpha/boot/misc.c	2006-07-12 15:20:35.000000000 -0700
++++ alp-linux/arch/alpha/boot/misc.c	2006-07-12 15:22:40.000000000 -0700
+@@ -28,20 +28,16 @@
+  * gzip delarations
+  */
+ 
+-typedef unsigned char  uch;
+-typedef unsigned short ush;
+-typedef unsigned long  ulg;
+-
+ static void error(char *m);
+ 
+ static char *input_data;
+ static int  input_data_size;
+ 
+-static uch *output_data;
++static u8 *output_data;
+ 
+ extern int end;
+-static ulg free_mem_ptr;
+-static ulg free_mem_ptr_end;
++static u32 free_mem_ptr;
++static u32 free_mem_ptr_end;
+ 
+ #define HEAP_SIZE 0x2000
+ 
+@@ -70,13 +66,13 @@
+ 		  size_t kzsize)
+ {
+ 	int count;
+-	output_data		= (uch *)output_start;
+-	input_data		= (uch *)input_start;
++	output_data		= (u8 *)output_start;
++	input_data		= (u8 *)input_start;
+ 	input_data_size		= kzsize; /* use compressed size */
+ 
+ 	/* FIXME FIXME FIXME */
+-	free_mem_ptr		= (ulg)output_start + ksize;
+-	free_mem_ptr_end	= (ulg)output_start + ksize + 0x200000;
++	free_mem_ptr		= (u32)output_start + ksize;
++	free_mem_ptr_end	= (u32)output_start + ksize + 0x200000;
+ 	/* FIXME FIXME FIXME */
+ 
+ /*	puts("Uncompressing Linux..."); */
+Index: alp-linux/arch/arm/boot/compressed/misc.c
+===================================================================
+--- alp-linux.orig/arch/arm/boot/compressed/misc.c	2006-07-12 15:22:12.000000000 -0700
++++ alp-linux/arch/arm/boot/compressed/misc.c	2006-07-12 15:23:57.000000000 -0700
+@@ -46,22 +46,18 @@
+  * gzip declarations
+  */
+ 
+-typedef unsigned char  uch;
+-typedef unsigned short ush;
+-typedef unsigned long  ulg;
+-
+ static void error(char *m);
+ 
+ extern char input_data[];
+ extern char input_data_end[];
+ 
+-static uch *output_data;
++static u8 *output_data;
+ 
+ static void putstr(const char *);
+ 
+ extern int end;
+-static ulg free_mem_ptr;
+-static ulg free_mem_ptr_end;
++static u32 free_mem_ptr;
++static u32 free_mem_ptr_end;
+ 
+ #define HEAP_SIZE 0x2000
+ 
+@@ -96,13 +92,13 @@
+ 
+ #ifndef STANDALONE_DEBUG
+ 
+-ulg
+-decompress_kernel(ulg output_start, ulg free_mem_ptr_p, ulg free_mem_ptr_end_p,
++u32
++decompress_kernel(u32 output_start, u32 free_mem_ptr_p, u32 free_mem_ptr_end_p,
+ 		  int arch_id)
+ {
+ 	int count;
+ 
+-	output_data		= (uch *)output_start;	/* Points to kernel start */
++	output_data		= (u8 *)output_start;	/* Points to kernel start */
+ 	free_mem_ptr		= free_mem_ptr_p;
+ 	free_mem_ptr_end	= free_mem_ptr_end_p;
+ 	__machine_arch_type	= arch_id;
+Index: alp-linux/arch/arm26/boot/compressed/misc.c
+===================================================================
+--- alp-linux.orig/arch/arm26/boot/compressed/misc.c	2006-07-12 15:20:35.000000000 -0700
++++ alp-linux/arch/arm26/boot/compressed/misc.c	2006-07-12 15:22:40.000000000 -0700
+@@ -31,21 +31,17 @@
+  * gzip delarations
+  */
+ 
+-typedef unsigned char  uch;
+-typedef unsigned short ush;
+-typedef unsigned long  ulg;
+-
+ static void error(char *m);
+ 
+ extern char input_data[];
+ extern char input_data_end[];
+-static uch *output_data;
++static u8 *output_data;
+ 
+ static void puts(const char *);
+ 
+ extern int end;
+-static ulg free_mem_ptr;
+-static ulg free_mem_ptr_end;
++static u32 free_mem_ptr;
++static u32 free_mem_ptr_end;
+ 
+ #define HEAP_SIZE 0x2000
+ 
+@@ -76,11 +72,11 @@
+ 
+ #ifndef STANDALONE_DEBUG
+ 
+-ulg
+-decompress_kernel(ulg output_start, ulg free_mem_ptr_p, ulg free_mem_ptr_end_p,
++u32
++decompress_kernel(u32 output_start, u32 free_mem_ptr_p, u32 free_mem_ptr_end_p,
+ 		  int arch_id)
+ {
+-	output_data		= (uch *)output_start;	/* Points to kernel start */
++	output_data		= (u8 *)output_start;	/* Points to kernel start */
+ 	free_mem_ptr		= free_mem_ptr_p;
+ 	free_mem_ptr_end	= free_mem_ptr_end_p;
+ 	__machine_arch_type	= arch_id;
+Index: alp-linux/arch/cris/arch-v10/boot/compressed/misc.c
+===================================================================
+--- alp-linux.orig/arch/cris/arch-v10/boot/compressed/misc.c	2006-07-12 15:20:35.000000000 -0700
++++ alp-linux/arch/cris/arch-v10/boot/compressed/misc.c	2006-07-12 15:22:40.000000000 -0700
+@@ -28,16 +28,12 @@
+  * gzip declarations
+  */
+ 
+-typedef unsigned char  uch;
+-typedef unsigned short ush;
+-typedef unsigned long  ulg;
+-
+ unsigned compsize; /* compressed size, used by head.S */
+ 
+ static void error(char *m);
+ 
+ extern char *input_data;  /* lives in head.S */
+-static uch *output_data;
++static u8 *output_data;
+ 
+ static void puts(const char *);
+ 
+Index: alp-linux/arch/cris/arch-v32/boot/compressed/misc.c
+===================================================================
+--- alp-linux.orig/arch/cris/arch-v32/boot/compressed/misc.c	2006-07-12 15:20:35.000000000 -0700
++++ alp-linux/arch/cris/arch-v32/boot/compressed/misc.c	2006-07-12 15:22:40.000000000 -0700
+@@ -30,14 +30,10 @@
+  * gzip declarations
+  */
+ 
+-typedef unsigned char  uch;
+-typedef unsigned short ush;
+-typedef unsigned long  ulg;
+-
+ static void error(char *m);
+ 
+ extern char *input_data;  /* lives in head.S */
+-static uch *output_data;
++static u8 *output_data;
+ 
+ static void puts(const char *);
+ 
+Index: alp-linux/arch/i386/boot/compressed/misc.c
+===================================================================
+--- alp-linux.orig/arch/i386/boot/compressed/misc.c	2006-07-12 15:20:35.000000000 -0700
++++ alp-linux/arch/i386/boot/compressed/misc.c	2006-07-12 15:22:40.000000000 -0700
+@@ -23,9 +23,6 @@
+  *
+  * Incomprehensible are the ways of bootloaders.
+  */
+-typedef unsigned char  uch;
+-typedef unsigned short ush;
+-typedef unsigned long  ulg;
+ 
+ static void error(char *m);
+ 
+@@ -43,7 +40,7 @@
+ extern char input_data[];
+ extern int input_len;
+ static long bytes_out;
+-static uch *output_data;
++static u8 *output_data;
+ 
+ static void putstr(const char *);
+ 
+@@ -57,7 +54,7 @@
+ #define HEAP_SIZE             0x3000
+ static unsigned int low_buffer_end, low_buffer_size;
+ static int high_loaded =0;
+-static uch *high_buffer_start /* = (uch *)(((ulg)&end) + HEAP_SIZE)*/;
++static u8 *high_buffer_start /* = (u8 *)(((u32)&end) + HEAP_SIZE)*/;
+ 
+ static char *vidmem = (char *)0xb8000;
+ static int vidport;
+@@ -158,13 +155,13 @@
+ }
+ 
+ struct moveparams {
+-	uch *low_buffer_start;  int lcount;
+-	uch *high_buffer_start; int hcount;
++	u8 *low_buffer_start;  int lcount;
++	u8 *high_buffer_start; int hcount;
+ };
+ 
+ static void setup_output_buffer_if_we_run_high(struct moveparams *mv)
+ {
+-	high_buffer_start = (uch *)(((ulg)&end) + HEAP_SIZE);
++	high_buffer_start = (u8 *)(((u32)&end) + HEAP_SIZE);
+ #ifdef STANDARD_MEMORY_BIOS_CALL
+ 	if (RM_EXT_MEM_K < (3*1024)) error("Less than 4MB of memory");
+ #else
+@@ -178,8 +175,8 @@
+ 	low_buffer_size = low_buffer_end - LOW_BUFFER_START;
+ 	high_loaded = 1;
+ 	free_mem_end_ptr = (long)high_buffer_start;
+-	if ( (__PHYSICAL_START + low_buffer_size) > ((ulg)high_buffer_start)) {
+-		high_buffer_start = (uch *)(__PHYSICAL_START + low_buffer_size);
++	if ( (__PHYSICAL_START + low_buffer_size) > ((u32)high_buffer_start)) {
++		high_buffer_start = (u8 *)(__PHYSICAL_START + low_buffer_size);
+ 		mv->hcount = 0; /* say: we need not to move high_buffer */
+ 	}
+ 	else mv->hcount = -1;
+Index: alp-linux/arch/m32r/boot/compressed/misc.c
+===================================================================
+--- alp-linux.orig/arch/m32r/boot/compressed/misc.c	2006-07-12 15:20:35.000000000 -0700
++++ alp-linux/arch/m32r/boot/compressed/misc.c	2006-07-12 15:22:40.000000000 -0700
+@@ -17,15 +17,11 @@
+  * gzip declarations
+  */
+ 
+-typedef unsigned char  uch;
+-typedef unsigned short ush;
+-typedef unsigned long  ulg;
+-
+ static void error(char *m);
+ 
+ static unsigned char *input_data;
+ static int input_len;
+-static uch *output_data;
++static u8 *output_data;
+ 
+ #include "m32r_sio.c"
+ 
+Index: alp-linux/arch/sh/boot/compressed/misc.c
+===================================================================
+--- alp-linux.orig/arch/sh/boot/compressed/misc.c	2006-07-12 15:20:35.000000000 -0700
++++ alp-linux/arch/sh/boot/compressed/misc.c	2006-07-12 15:22:40.000000000 -0700
+@@ -19,15 +19,11 @@
+  * gzip declarations
+  */
+ 
+-typedef unsigned char  uch;
+-typedef unsigned short ush;
+-typedef unsigned long  ulg;
+-
+ static void error(char *m);
+ 
+ extern char input_data[];
+ extern int input_len;
+-static uch *output_data;
++static u8 *output_data;
+ 
+ int puts(const char *);
+ 
+Index: alp-linux/arch/sh64/boot/compressed/misc.c
+===================================================================
+--- alp-linux.orig/arch/sh64/boot/compressed/misc.c	2006-07-12 15:20:35.000000000 -0700
++++ alp-linux/arch/sh64/boot/compressed/misc.c	2006-07-12 15:22:40.000000000 -0700
+@@ -19,15 +19,11 @@
+  * gzip declarations
+  */
+ 
+-typedef unsigned char uch;
+-typedef unsigned short ush;
+-typedef unsigned long ulg;
+-
+ static void error(char *m);
+ 
+ extern char input_data[];
+ extern int input_len;
+-static uch *output_data;
++static u8 *output_data;
+ 
+ static void puts(const char *);
+ 
+@@ -68,7 +64,7 @@
+ 
+ void decompress_kernel(void)
+ {
+-	output_data = (uch *) (CONFIG_MEMORY_START + 0x2000);
++	output_data = (u8 *) (CONFIG_MEMORY_START + 0x2000);
+ 	free_mem_ptr = (unsigned long) &_end;
+ 	free_mem_end_ptr = free_mem_ptr + HEAP_SIZE;
+ 
+Index: alp-linux/arch/x86_64/boot/compressed/misc.c
+===================================================================
+--- alp-linux.orig/arch/x86_64/boot/compressed/misc.c	2006-07-12 15:20:35.000000000 -0700
++++ alp-linux/arch/x86_64/boot/compressed/misc.c	2006-07-12 15:22:40.000000000 -0700
+@@ -16,10 +16,6 @@
+  * gzip declarations
+  */
+ 
+-typedef unsigned char  uch;
+-typedef unsigned short ush;
+-typedef unsigned long  ulg;
+-
+ static void error(char *m);
+ 
+ /*
+@@ -37,7 +33,7 @@
+ extern int input_len;
+ 
+ static long bytes_out;
+-static uch *output_data;
++static u8 *output_data;
+ 
+ static void putstr(const char *);
+ 
+@@ -51,7 +47,7 @@
+ #define HEAP_SIZE             0x3000
+ static unsigned int low_buffer_end, low_buffer_size;
+ static int high_loaded =0;
+-static uch *high_buffer_start /* = (uch *)(((ulg)&end) + HEAP_SIZE)*/;
++static u8 *high_buffer_start /* = (u8 *)(((u32)&end) + HEAP_SIZE)*/;
+ 
+ static char *vidmem = (char *)0xb8000;
+ static int vidport;
+@@ -139,13 +135,13 @@
+ }
+ 
+ struct moveparams {
+-	uch *low_buffer_start;  int lcount;
+-	uch *high_buffer_start; int hcount;
++	u8 *low_buffer_start;  int lcount;
++	u8 *high_buffer_start; int hcount;
+ };
+ 
+ void setup_output_buffer_if_we_run_high(struct moveparams *mv)
+ {
+-	high_buffer_start = (uch *)(((ulg)&end) + HEAP_SIZE);
++	high_buffer_start = (u8 *)(((u32)&end) + HEAP_SIZE);
+ #ifdef STANDARD_MEMORY_BIOS_CALL
+ 	if (EXT_MEM_K < (3*1024)) error("Less than 4MB of memory");
+ #else
+@@ -157,8 +153,8 @@
+ 	low_buffer_size = low_buffer_end - LOW_BUFFER_START;
+ 	high_loaded = 1;
+ 	free_mem_end_ptr = (long)high_buffer_start;
+-	if ( (__PHYSICAL_START + low_buffer_size) > ((ulg)high_buffer_start)) {
+-		high_buffer_start = (uch *)(__PHYSICAL_START + low_buffer_size);
++	if ( (__PHYSICAL_START + low_buffer_size) > ((u32)high_buffer_start)) {
++		high_buffer_start = (u8 *)(__PHYSICAL_START + low_buffer_size);
+ 		mv->hcount = 0; /* say: we need not to move high_buffer */
+ 	}
+ 	else mv->hcount = -1;
+Index: alp-linux/init/do_mounts_rd.c
+===================================================================
+--- alp-linux.orig/init/do_mounts_rd.c	2006-07-12 15:20:35.000000000 -0700
++++ alp-linux/init/do_mounts_rd.c	2006-07-12 15:22:40.000000000 -0700
+@@ -286,12 +286,8 @@
+  * gzip declarations
+  */
+ 
+-typedef unsigned char  uch;
+-typedef unsigned short ush;
+-typedef unsigned long  ulg;
+-
+ #define INBUFSIZ 4096
+-static uch *inbuf;
++static u8 *inbuf;
+ static int exit_code;
+ static int unzip_error;
+ static int crd_infd, crd_outfd;
+Index: alp-linux/init/initramfs.c
+===================================================================
+--- alp-linux.orig/init/initramfs.c	2006-07-12 15:20:35.000000000 -0700
++++ alp-linux/init/initramfs.c	2006-07-12 15:22:40.000000000 -0700
+@@ -333,10 +333,6 @@
+  * gzip declarations
+  */
+ 
+-typedef unsigned char  uch;
+-typedef unsigned short ush;
+-typedef unsigned long  ulg;
+-
+ #define INIT __init
+ 
+ static void __init error(char *m);

@@ -1,0 +1,90 @@
+inflate: mark some arrays as INITDATA and define it in in-core callers
+
+Signed-off-by: Matt Mackall <mpm@selenic.com>
+
+Index: linux-2.6.16.19/init/do_mounts_rd.c
+===================================================================
+--- linux-2.6.16.19.orig/init/do_mounts_rd.c	2006-06-23 17:06:33.000000000 -0700
++++ linux-2.6.16.19/init/do_mounts_rd.c	2006-06-23 17:06:36.000000000 -0700
+@@ -271,6 +271,7 @@
+ 
+ /* gzip declarations */
+ #define INIT __init
++#define INITDATA __initdata
+ #define NO_INFLATE_MALLOC
+ 
+ #include "../lib/inflate.c"
+Index: linux-2.6.16.19/init/initramfs.c
+===================================================================
+--- linux-2.6.16.19.orig/init/initramfs.c	2006-06-23 17:06:33.000000000 -0700
++++ linux-2.6.16.19/init/initramfs.c	2006-06-23 17:06:36.000000000 -0700
+@@ -332,6 +332,7 @@
+ /* gzip declarations */
+ 
+ #define INIT __init
++#define INITDATA __initdata
+ #define NO_INFLATE_MALLOC
+ 
+ #include "../lib/inflate.c"
+Index: linux-2.6.16.19/lib/inflate.c
+===================================================================
+--- linux-2.6.16.19.orig/lib/inflate.c	2006-06-23 17:06:36.000000000 -0700
++++ linux-2.6.16.19/lib/inflate.c	2006-06-23 17:06:36.000000000 -0700
+@@ -104,6 +104,9 @@
+ #ifndef INIT
+ #define INIT
+ #endif
++#ifndef INITDATA
++#define INITDATA
++#endif
+ 
+ #include <asm/types.h>
+ 
+@@ -144,7 +147,7 @@
+ 		malloc_ptr = free_mem_ptr;
+ }
+ 
+-static u8 window[0x8000]; /* use a statically allocated window */
++static u8 INITDATA window[0x8000]; /* use a statically allocated window */
+ #else
+ static u8 *window; /* dynamically allocate */
+ #define malloc(a) kmalloc(a, GFP_KERNEL)
+@@ -236,12 +239,12 @@
+ /* Tables for deflate from PKZIP's appnote.txt. */
+ 
+ /* Order of the bit length code lengths */
+-static const unsigned border[] = {
++static INITDATA unsigned border[] = {
+ 	16, 17, 18, 0, 8, 7, 9, 6, 10, 5, 11, 4, 12, 3, 13, 2, 14, 1, 15
+ };
+ 
+ /* Copy lengths for literal codes 257..285 */
+-static const u16 cplens[] = {
++static INITDATA u16 cplens[] = {
+ 	3, 4, 5, 6, 7, 8, 9, 10, 11, 13, 15, 17, 19, 23, 27, 31,
+ 	35, 43, 51, 59, 67, 83, 99, 115, 131, 163, 195, 227, 258, 0, 0
+ };
+@@ -250,20 +253,20 @@
+  * note: see note #13 above about the 258 in this list.
+  * 99==invalid
+  */
+-static const u16 cplext[] = {
++static INITDATA u16 cplext[] = {
+ 	0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 2, 2, 2, 2,
+ 	3, 3, 3, 3, 4, 4, 4, 4, 5, 5, 5, 5, 0, 99, 99
+ };
+ 
+ /* Copy offsets for distance codes 0..29 */
+-static const u16 cpdist[] = {
++static INITDATA u16 cpdist[] = {
+ 	1, 2, 3, 4, 5, 7, 9, 13, 17, 25, 33, 49, 65, 97, 129, 193,
+ 	257, 385, 513, 769, 1025, 1537, 2049, 3073, 4097, 6145,
+ 	8193, 12289, 16385, 24577
+ };
+ 
+ /* Extra bits for distance codes */
+-static const u16 cpdext[] = {
++static INITDATA u16 cpdext[] = {
+ 	0, 0, 0, 0, 1, 1, 2, 2, 3, 3, 4, 4, 5, 5, 6, 6,
+ 	7, 7, 8, 8, 9, 9, 10, 10, 11, 11,
+ 	12, 12, 13, 13

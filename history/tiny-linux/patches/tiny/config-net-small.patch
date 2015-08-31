@@ -1,0 +1,26 @@
+
+Add CONFIG_NET_SMALL for miscellaneous networking tweaks
+
+
+
+ init/Kconfig |    7 	7 +	0 -	0 !
+ 1 files changed, 7 insertions(+)
+
+Index: linux-2.6.23-rc9/init/Kconfig
+===================================================================
+--- linux-2.6.23-rc9.orig/init/Kconfig	2007-10-08 23:52:27.000000000 +0200
++++ linux-2.6.23-rc9/init/Kconfig	2007-10-09 00:30:41.000000000 +0200
+@@ -455,6 +455,13 @@
+ 	  kernel data structures. This saves memory on small machines,
+ 	  but may reduce performance.
+ 
++config NET_SMALL
++	default n
++	bool "Enable various size reductions for networking" if EMBEDDED
++	help
++	  This reduces the size of miscellaneous networking data structures.
++          Currently a placeholder.
++
+ config FUTEX
+ 	bool "Enable futex support" if EMBEDDED
+ 	default y

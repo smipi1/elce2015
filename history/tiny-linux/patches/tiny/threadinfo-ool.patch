@@ -1,0 +1,163 @@
+
+configurable inlining of current() and current_thread_info()
+
+On UP, make get_current and current_thread_info access global
+variables set by switch_to, rather than doing math on the stack
+pointer. Saves about 4k.
+
+
+
+ tiny-mpm/arch/i386/kernel/process.c     |   11 +++++++++++
+ tiny-mpm/include/asm-i386/current.h     |    9 ++++++++-
+ tiny-mpm/include/asm-i386/thread_info.h |   10 ++++++++++
+ tiny-mpm/init/Kconfig                   |    8 ++++++++
+ 4 files changed, 37 insertions(+), 1 deletion(-)
+
+Index: linux-2.6.16.19/arch/i386/kernel/irq.c
+===================================================================
+--- linux-2.6.16.19.orig/arch/i386/kernel/irq.c	2006-06-23 17:06:12.000000000 -0700
++++ linux-2.6.16.19/arch/i386/kernel/irq.c	2006-06-23 17:06:19.000000000 -0700
+@@ -95,6 +95,10 @@
+ 		irqctx->tinfo.task = curctx->tinfo.task;
+ 		irqctx->tinfo.previous_esp = current_stack_pointer;
+ 
++#ifndef CONFIG_INLINE_THREADINFO
++		__current_thread_info = (struct thread_info *)irqctx;
++#endif
++
+ 		asm volatile(
+ 			"       xchgl   %%ebx,%%esp      \n"
+ 			"       call    __do_IRQ         \n"
+@@ -103,6 +107,10 @@
+ 			:  "0" (irq),   "1" (regs),  "2" (isp)
+ 			: "memory", "cc", "ecx"
+ 		);
++
++#ifndef CONFIG_INLINE_THREADINFO
++		__current_thread_info = (struct thread_info *)curctx;
++#endif
+ 	} else
+ #endif
+ 		__do_IRQ(irq, regs);
+@@ -186,6 +194,10 @@
+ 		/* build the stack frame on the softirq stack */
+ 		isp = (u32*) ((char*)irqctx + sizeof(*irqctx));
+ 
++#ifndef CONFIG_INLINE_THREADINFO
++		__current_thread_info = (struct thread_info *)irqctx;
++#endif
++
+ 		asm volatile(
+ 			"       xchgl   %%ebx,%%esp     \n"
+ 			"       call    __do_softirq    \n"
+@@ -194,6 +206,10 @@
+ 			: "0"(isp)
+ 			: "memory", "cc", "edx", "ecx", "eax"
+ 		);
++
++#ifndef CONFIG_INLINE_THREADINFO
++		__current_thread_info = (struct thread_info *)curctx;
++#endif
+ 	}
+ 
+ 	local_irq_restore(flags);
+Index: linux-2.6.16.19/arch/i386/kernel/process.c
+===================================================================
+--- linux-2.6.16.19.orig/arch/i386/kernel/process.c	2006-06-23 17:05:13.000000000 -0700
++++ linux-2.6.16.19/arch/i386/kernel/process.c	2006-06-23 17:06:19.000000000 -0700
+@@ -65,6 +65,13 @@
+ unsigned long boot_option_idle_override = 0;
+ EXPORT_SYMBOL(boot_option_idle_override);
+ 
++#ifndef CONFIG_INLINE_THREADINFO
++struct thread_info *__current_thread_info = &init_thread_info;
++struct task_struct *__current_task = &init_task;
++EXPORT_SYMBOL(__current_thread_info);
++EXPORT_SYMBOL(__current_task);
++#endif
++
+ /*
+  * Return saved PC of a blocked thread.
+  */
+@@ -697,6 +704,11 @@
+ 
+ 	disable_tsc(prev_p, next_p);
+ 
++#ifndef CONFIG_INLINE_THREADINFO
++	__current_thread_info = next_p->thread_info;
++	__current_task = next_p;
++#endif
++
+ 	return prev_p;
+ }
+ 
+Index: linux-2.6.16.19/include/asm-i386/current.h
+===================================================================
+--- linux-2.6.16.19.orig/include/asm-i386/current.h	2006-06-23 17:05:13.000000000 -0700
++++ linux-2.6.16.19/include/asm-i386/current.h	2006-06-23 17:06:19.000000000 -0700
+@@ -5,11 +5,18 @@
+ 
+ struct task_struct;
+ 
++#ifdef CONFIG_INLINE_THREADINFO
+ static __always_inline struct task_struct * get_current(void)
+ {
+ 	return current_thread_info()->task;
+ }
+- 
++#else
++extern struct task_struct *__current_task;
++static __always_inline struct task_struct * get_current(void)
++{
++	return __current_task;
++}
++#endif
+ #define current get_current()
+ 
+ #endif /* !(_I386_CURRENT_H) */
+Index: linux-2.6.16.19/include/asm-i386/thread_info.h
+===================================================================
+--- linux-2.6.16.19.orig/include/asm-i386/thread_info.h	2006-06-23 17:05:13.000000000 -0700
++++ linux-2.6.16.19/include/asm-i386/thread_info.h	2006-06-23 17:06:19.000000000 -0700
+@@ -85,12 +85,22 @@
+ 
+ 
+ /* how to get the thread information struct from C */
++#ifdef CONFIG_INLINE_THREADINFO
+ static inline struct thread_info *current_thread_info(void)
+ {
+ 	struct thread_info *ti;
+ 	__asm__("andl %%esp,%0; ":"=r" (ti) : "0" (~(THREAD_SIZE - 1)));
+ 	return ti;
+ }
++#else
++extern struct thread_info *__current_thread_info;
++
++static inline struct thread_info *current_thread_info(void)
++{
++	return __current_thread_info;
++}
++
++#endif
+ 
+ /* how to get the current stack pointer from C */
+ register unsigned long current_stack_pointer asm("esp") __attribute_used__;
+Index: linux-2.6.16.19/init/Kconfig
+===================================================================
+--- linux-2.6.16.19.orig/init/Kconfig	2006-06-23 17:06:19.000000000 -0700
++++ linux-2.6.16.19/init/Kconfig	2006-06-23 17:06:19.000000000 -0700
+@@ -456,6 +456,14 @@
+           reduces kernel size by about 2K. This may actually result in
+           faster code on machines with limited memory bandwidth.
+ 
++config INLINE_THREADINFO
++	depends X86
++	default y
++	bool "Inline current pointer calculation" if EMBEDDED && !SMP
++	help
++	  Disabling this simplifies the code for finding information
++          about the current thread. Saves about 4k on small kernels.
++
+ endmenu		# General setup
+ 
+ config CRC32_CALC

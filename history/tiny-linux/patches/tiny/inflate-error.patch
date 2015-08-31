@@ -1,0 +1,500 @@
+inflate: error handling cleanup
+
+This passes the error function as a callback rather than using a
+global symbol.
+
+Signed-off-by: Matt Mackall <mpm@selenic.com>
+
+Index: alp-linux/arch/alpha/boot/misc.c
+===================================================================
+--- alp-linux.orig/arch/alpha/boot/misc.c	2006-07-12 15:22:40.000000000 -0700
++++ alp-linux/arch/alpha/boot/misc.c	2006-07-12 15:24:21.000000000 -0700
+@@ -28,8 +28,6 @@
+  * gzip delarations
+  */
+ 
+-static void error(char *m);
+-
+ static char *input_data;
+ static int  input_data_size;
+ 
+@@ -50,7 +48,7 @@
+ 		*output_data++ = *buf++;
+ }
+ 
+-static void error(char *x)
++static void error(const char *x)
+ {
+ 	puts("\n\n");
+ 	puts(x);
+@@ -76,7 +74,7 @@
+ 	/* FIXME FIXME FIXME */
+ 
+ /*	puts("Uncompressing Linux..."); */
+-	count = gunzip(input_data, input_data_size, NULL, flush_window);
++	count = gunzip(input_data, input_data_size, NULL, flush_window, error);
+ /*	puts(" done, booting the kernel.\n"); */
+ 	return count;
+ }
+Index: alp-linux/arch/arm/boot/compressed/misc.c
+===================================================================
+--- alp-linux.orig/arch/arm/boot/compressed/misc.c	2006-07-12 15:23:57.000000000 -0700
++++ alp-linux/arch/arm/boot/compressed/misc.c	2006-07-12 15:25:03.000000000 -0700
+@@ -46,8 +46,6 @@
+  * gzip declarations
+  */
+ 
+-static void error(char *m);
+-
+ extern char input_data[];
+ extern char input_data_end[];
+ 
+@@ -79,7 +77,7 @@
+ #define arch_error(x)
+ #endif
+ 
+-static void error(char *x)
++static void error(const char *x)
+ {
+ 	arch_error(x);
+ 
+@@ -106,7 +104,8 @@
+ 	arch_decomp_setup();
+ 
+ 	putstr("Uncompressing Linux...");
+-	count = gunzip(input_data, input_data_end - input_data, NULL, flush_window);
++	count = gunzip(input_data, input_data_end - input_data, NULL, flush_window,
++ 	       error);
+ 	putstr(" done, booting the kernel.\n");
+ 	return count;
+ }
+@@ -119,7 +118,8 @@
+ 	output_data = output_buffer;
+ 
+ 	putstr("Uncompressing Linux...");
+-	gunzip(input_data, input_data_end - input_data, NULL, flush_window);
++	gunzip(input_data, input_data_end - input_data, NULL, flush_window,
++	       error);
+ 	putstr("done.\n");
+ 	return 0;
+ }
+Index: alp-linux/arch/arm26/boot/compressed/misc.c
+===================================================================
+--- alp-linux.orig/arch/arm26/boot/compressed/misc.c	2006-07-12 15:22:40.000000000 -0700
++++ alp-linux/arch/arm26/boot/compressed/misc.c	2006-07-12 15:24:21.000000000 -0700
+@@ -31,8 +31,6 @@
+  * gzip delarations
+  */
+ 
+-static void error(char *m);
+-
+ extern char input_data[];
+ extern char input_data_end[];
+ static u8 *output_data;
+@@ -59,7 +57,7 @@
+ 	puts(".");
+ }
+ 
+-static void error(char *x)
++static void error(const char *x)
+ {
+ 	int ptr;
+ 
+@@ -84,7 +82,8 @@
+ 	arch_decomp_setup();
+ 
+ 	puts("Uncompressing Linux...");
+-	gunzip(input_data, input_data_end - input_data, NULL, flush_window);
++	gunzip(input_data, input_data_end - input_data, NULL, flush_window,
++	       error);
+ 	puts(" done, booting the kernel.\n");
+ 	return output_ptr;
+ }
+@@ -97,7 +96,8 @@
+ 	output_data = output_buffer;
+ 
+ 	puts("Uncompressing Linux...");
+-	gunzip(input_data, input_data_end - input_data, NULL, flush_window);
++	gunzip(input_data, input_data_end - input_data, NULL, flush_window,
++	       error);
+ 	puts("done.\n");
+ 	return 0;
+ }
+Index: alp-linux/arch/cris/arch-v10/boot/compressed/misc.c
+===================================================================
+--- alp-linux.orig/arch/cris/arch-v10/boot/compressed/misc.c	2006-07-12 15:22:40.000000000 -0700
++++ alp-linux/arch/cris/arch-v10/boot/compressed/misc.c	2006-07-12 15:24:21.000000000 -0700
+@@ -30,8 +30,6 @@
+ 
+ unsigned compsize; /* compressed size, used by head.S */
+ 
+-static void error(char *m);
+-
+ extern char *input_data;  /* lives in head.S */
+ static u8 *output_data;
+ 
+@@ -79,8 +77,7 @@
+ 		*output_data++ = *buf++;
+ }
+ 
+-static void
+-error(char *x)
++static void error(const char *x)
+ {
+ 	puts("\n\n");
+ 	puts(x);
+@@ -136,6 +133,6 @@
+ 	}
+ 
+ 	puts("Uncompressing Linux...\n");
+-	compsize = gunzip(input_data, 0x7fffffff, NULL, flush_window);
++	compsize = gunzip(input_data, 0x7fffffff, NULL, flush_window, error);
+ 	puts("Done. Now booting the kernel.\n");
+ }
+Index: alp-linux/arch/cris/arch-v32/boot/compressed/misc.c
+===================================================================
+--- alp-linux.orig/arch/cris/arch-v32/boot/compressed/misc.c	2006-07-12 15:22:40.000000000 -0700
++++ alp-linux/arch/cris/arch-v32/boot/compressed/misc.c	2006-07-12 15:24:21.000000000 -0700
+@@ -30,8 +30,6 @@
+  * gzip declarations
+  */
+ 
+-static void error(char *m);
+-
+ extern char *input_data;  /* lives in head.S */
+ static u8 *output_data;
+ 
+@@ -91,8 +89,7 @@
+ 		*output_data++ = *buf++;
+ }
+ 
+-static void
+-error(char *x)
++static void error(const char *x)
+ {
+ 	puts("\n\n");
+ 	puts(x);
+@@ -179,6 +176,6 @@
+ 	}
+ 
+ 	puts("Uncompressing Linux...\n");
+-	gunzip(input_data, 0x7fffffff, NULL, flush_window);
++	gunzip(input_data, 0x7fffffff, NULL, flush_window, error);
+ 	puts("Done. Now booting the kernel.\n");
+ }
+Index: alp-linux/arch/i386/boot/compressed/misc.c
+===================================================================
+--- alp-linux.orig/arch/i386/boot/compressed/misc.c	2006-07-12 15:22:40.000000000 -0700
++++ alp-linux/arch/i386/boot/compressed/misc.c	2006-07-12 15:24:21.000000000 -0700
+@@ -24,8 +24,6 @@
+  * Incomprehensible are the ways of bootloaders.
+  */
+ 
+-static void error(char *m);
+-
+ /*
+  * This is set up by the setup-routine at boot-time
+  */
+@@ -125,7 +123,7 @@
+ 	}
+ }
+ 
+-static void error(char *x)
++static void error(const char *x)
+ {
+ 	putstr("\n\n");
+ 	putstr(x);
+@@ -214,7 +212,7 @@
+ 	else setup_output_buffer_if_we_run_high(mv);
+ 
+ 	putstr("Uncompressing Linux... ");
+-	gunzip(input_data, input_len, NULL, flush_window);
++	gunzip(input_data, input_len, NULL, flush_window, error);
+ 	putstr("Ok, booting the kernel.\n");
+ 	if (high_loaded) close_output_buffer_if_we_run_high(mv);
+ 	return high_loaded;
+Index: alp-linux/arch/m32r/boot/compressed/misc.c
+===================================================================
+--- alp-linux.orig/arch/m32r/boot/compressed/misc.c	2006-07-12 15:22:40.000000000 -0700
++++ alp-linux/arch/m32r/boot/compressed/misc.c	2006-07-12 15:24:21.000000000 -0700
+@@ -17,8 +17,6 @@
+  * gzip declarations
+  */
+ 
+-static void error(char *m);
+-
+ static unsigned char *input_data;
+ static int input_len;
+ static u8 *output_data;
+@@ -39,7 +37,7 @@
+ 		*output_data++ = *buf++;
+ }
+ 
+-static void error(char *x)
++static void error(const char *x)
+ {
+ 	puts("\n\n");
+ 	puts(x);
+@@ -61,6 +59,6 @@
+ 	input_len = zimage_len;
+ 
+ 	puts("Uncompressing Linux... ");
+-	gunzip(input_data, input_len, NULL, flush_window);
++	gunzip(input_data, input_len, NULL, flush_window, error);
+ 	puts("Ok, booting the kernel.\n");
+ }
+Index: alp-linux/arch/sh/boot/compressed/misc.c
+===================================================================
+--- alp-linux.orig/arch/sh/boot/compressed/misc.c	2006-07-12 15:22:40.000000000 -0700
++++ alp-linux/arch/sh/boot/compressed/misc.c	2006-07-12 15:24:21.000000000 -0700
+@@ -19,8 +19,6 @@
+  * gzip declarations
+  */
+ 
+-static void error(char *m);
+-
+ extern char input_data[];
+ extern int input_len;
+ static u8 *output_data;
+@@ -67,7 +65,7 @@
+ 		*output_data++ = *buf++;
+ }
+ 
+-static void error(char *x)
++static void error(const char *x)
+ {
+ 	puts("\n\n");
+ 	puts(x);
+@@ -88,6 +86,6 @@
+ 	free_mem_end_ptr = free_mem_ptr + HEAP_SIZE;
+ 
+ 	puts("Uncompressing Linux... ");
+-	gunzip(input_data, input_len, NULL, flush_window);
++	gunzip(input_data, input_len, NULL, flush_window, error);
+ 	puts("Ok, booting the kernel.\n");
+ }
+Index: alp-linux/arch/sh64/boot/compressed/misc.c
+===================================================================
+--- alp-linux.orig/arch/sh64/boot/compressed/misc.c	2006-07-12 15:22:40.000000000 -0700
++++ alp-linux/arch/sh64/boot/compressed/misc.c	2006-07-12 15:24:21.000000000 -0700
+@@ -19,8 +19,6 @@
+  * gzip declarations
+  */
+ 
+-static void error(char *m);
+-
+ extern char input_data[];
+ extern int input_len;
+ static u8 *output_data;
+@@ -49,7 +47,7 @@
+ 	puts(".");
+ }
+ 
+-static void error(char *x)
++static void error(const char *x)
+ {
+ 	puts("\n\n");
+ 	puts(x);
+@@ -70,7 +68,7 @@
+ 
+ 	puts("Uncompressing Linux... ");
+ 	cache_control(CACHE_ENABLE);
+-	gunzip(input_data, input_len, NULL, flush_window);
++	gunzip(input_data, input_len, NULL, flush_window, error);
+ 	puts("\n");
+ 
+ #if 0
+Index: alp-linux/arch/x86_64/boot/compressed/misc.c
+===================================================================
+--- alp-linux.orig/arch/x86_64/boot/compressed/misc.c	2006-07-12 15:22:40.000000000 -0700
++++ alp-linux/arch/x86_64/boot/compressed/misc.c	2006-07-12 15:24:21.000000000 -0700
+@@ -16,8 +16,6 @@
+  * gzip declarations
+  */
+ 
+-static void error(char *m);
+-
+ /*
+  * This is set up by the setup-routine at boot-time
+  */
+@@ -114,7 +112,7 @@
+ 	}
+ }
+ 
+-static void error(char *x)
++static void error(const char *x)
+ {
+ 	putstr("\n\n");
+ 	putstr(x);
+@@ -192,7 +190,7 @@
+ 	else setup_output_buffer_if_we_run_high(mv);
+ 
+ 	putstr(".\nDecompressing Linux...");
+-	gunzip(input_data, input_len, NULL, flush_window);
++	gunzip(input_data, input_len, NULL, flush_window, error);
+ 	putstr("done.\nBooting the kernel.\n");
+ 	if (high_loaded) close_output_buffer_if_we_run_high(mv);
+ 	return high_loaded;
+Index: alp-linux/init/do_mounts_rd.c
+===================================================================
+--- alp-linux.orig/init/do_mounts_rd.c	2006-07-12 15:22:40.000000000 -0700
++++ alp-linux/init/do_mounts_rd.c	2006-07-12 15:24:21.000000000 -0700
+@@ -294,12 +294,17 @@
+ 
+ #define INIT __init
+ 
+-static void __init error(char *m);
+-
+ #define NO_INFLATE_MALLOC
+ 
+ #include "../lib/inflate.c"
+ 
++static void __init error(const char *x)
++{
++	printk(KERN_ERR "%s\n", x);
++	exit_code = 1;
++	unzip_error = 1;
++}
++
+ /*
+  * Fill the input buffer. This is called only when the buffer is empty
+  * and at least one byte is really needed.
+@@ -323,13 +328,6 @@
+ 	}
+ }
+ 
+-static void __init error(char *x)
+-{
+-	printk(KERN_ERR "%s\n", x);
+-	exit_code = 1;
+-	unzip_error = 1;
+-}
+-
+ static int __init crd_load(int in_fd, int out_fd)
+ {
+ 	int result;
+@@ -343,7 +341,7 @@
+ 		printk(KERN_ERR "RAMDISK: Couldn't allocate gzip buffer\n");
+ 		return -1;
+ 	}
+-	result = gunzip(inbuf, INBUFSIZ, fill_inbuf, flush_buffer);
++	result = gunzip(inbuf, INBUFSIZ, fill_inbuf, flush_buffer, error);
+ 	if (unzip_error)
+ 		result = 1;
+ 	kfree(inbuf);
+Index: alp-linux/init/initramfs.c
+===================================================================
+--- alp-linux.orig/init/initramfs.c	2006-07-12 15:22:40.000000000 -0700
++++ alp-linux/init/initramfs.c	2006-07-12 15:24:21.000000000 -0700
+@@ -7,8 +7,8 @@
+ #include <linux/string.h>
+ #include <linux/syscalls.h>
+ 
+-static __initdata char *message;
+-static void __init error(char *x)
++static __initdata const char *message;
++static void __init error(const char *x)
+ {
+ 	if (!message)
+ 		message = x;
+@@ -335,13 +335,12 @@
+ 
+ #define INIT __init
+ 
+-static void __init error(char *m);
+-
+ #define NO_INFLATE_MALLOC
+ 
+ #include "../lib/inflate.c"
+ 
+-static char * __init unpack_to_rootfs(char *buf, unsigned len, int check_only)
++static const char * __init unpack_to_rootfs(char *buf, unsigned len,
++					    int check_only)
+ {
+ 	int written, cnt;
+ 	dry_run = check_only;
+@@ -369,7 +368,7 @@
+ 			continue;
+ 		}
+ 		this_header = 0;
+-		cnt = gunzip(buf, len, NULL, flush_buffer);
++		cnt = gunzip(buf, len, NULL, flush_buffer, error);
+ 		if (state != Reset)
+ 			error("junk in gzipped archive");
+ 		this_header = saved_offset + cnt;
+@@ -419,8 +418,9 @@
+ 
+ void __init populate_rootfs(void)
+ {
+-	char *err = unpack_to_rootfs(__initramfs_start,
+-			 __initramfs_end - __initramfs_start, 0);
++	const char *err =
++		unpack_to_rootfs(__initramfs_start,
++				 __initramfs_end - __initramfs_start, 0);
+ 	if (err)
+ 		panic(err);
+ #ifdef CONFIG_BLK_DEV_INITRD
+Index: alp-linux/lib/inflate.c
+===================================================================
+--- alp-linux.orig/lib/inflate.c	2006-07-12 15:20:35.000000000 -0700
++++ alp-linux/lib/inflate.c	2006-07-12 15:24:21.000000000 -0700
+@@ -121,8 +121,9 @@
+ {
+ 	void *p;
+ 
+-	if (size <0)
+-		error("Malloc error");
++	if (size < 0)
++		return NULL;
++
+ 	if (!malloc_ptr)
+ 		malloc_ptr = free_mem_ptr;
+ 
+@@ -132,7 +133,7 @@
+ 	malloc_ptr += size;
+ 
+ 	if (malloc_ptr >= free_mem_end_ptr)
+-		error("Out of memory");
++		return NULL;
+ 
+ 	malloc_count++;
+ 	return p;
+@@ -176,6 +177,7 @@
+ 	int ipos, isize, itotal, opos, osize, ototal, bits;
+ 	void (*fill)(u8 *ibuf, int len);
+ 	void (*flush)(const u8 *obuf, int len);
++	void (*error)(const char *msg);
+ 	u32 buf, crc;
+ };
+ 
+@@ -881,7 +883,7 @@
+ 	if ((i = huft_build(ll, nl, 257, cplens, cplext, &tl, &bl))) {
+ 		DEBG("dyn5b ");
+ 		if (i == 1) {
+-			error("incomplete literal tree");
++			io->error("incomplete literal tree");
+ 			huft_free(tl);
+ 		}
+ 		return i;	/* incomplete code set */
+@@ -891,7 +893,7 @@
+ 	if ((i = huft_build(ll + nl, nd, 0, cpdist, cpdext, &td, &bd))) {
+ 		DEBG("dyn5d ");
+ 		if (i == 1) {
+-			error("incomplete distance tree");
++			io->error("incomplete distance tree");
+ 			huft_free(td);
+ 		}
+ 		huft_free(tl);
+@@ -994,9 +996,11 @@
+  * @isize: size of pool
+  * @fill: function to fill the input pool
+  * @flush: function to flush the output pool
++ * @error: function to report an error
+  */
+ static int INIT gunzip(u8 *ibuf, int isize, void (*fill)(u8 *buf, int size),
+-		       void (*flush)(const u8 *buf, int size))
++		       void (*flush)(const u8 *buf, int size),
++		       void (*error)(const char *msg))
+ {
+ 	u8 flags;
+ 	unsigned char magic[2];	/* magic header */

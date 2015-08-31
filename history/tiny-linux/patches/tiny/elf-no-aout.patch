@@ -1,0 +1,268 @@
+
+configurable support for ELF with a.out loader or libs
+
+
+ arch/mips/kernel/irixelf.c |   12 	10 +	2 -	0 !
+ fs/binfmt_elf.c            |   29 	29 +	0 -	0 !
+ fs/exec.c                  |    4 	4 +	0 -	0 !
+ init/Kconfig               |    9 	9 +	0 -	0 !
+ 4 files changed, 52 insertions(+), 2 deletions(-)
+
+Index: linux-2.6.23-rc9/arch/mips/kernel/irixelf.c
+===================================================================
+--- linux-2.6.23-rc9.orig/arch/mips/kernel/irixelf.c	2007-10-09 00:28:54.000000000 +0200
++++ linux-2.6.23-rc9/arch/mips/kernel/irixelf.c	2007-10-09 00:28:57.000000000 +0200
+@@ -11,7 +11,6 @@
+  * Copyright (C) 2004 - 2005 Steven J. Hill <sjhill@realitydiluted.com>
+  */
+ #undef DEBUG
+-
+ #include <linux/module.h>
+ #include <linux/fs.h>
+ #include <linux/stat.h>
+@@ -42,12 +41,19 @@
+ #include <linux/elf.h>
+ 
+ static int load_irix_binary(struct linux_binprm * bprm, struct pt_regs * regs);
++#ifdef CONFIG_BINFMT_ELF_AOUT
+ static int load_irix_library(struct file *);
++#endif
+ static int irix_core_dump(long signr, struct pt_regs * regs,
+                           struct file *file);
+ 
+ static struct linux_binfmt irix_format = {
+-	NULL, THIS_MODULE, load_irix_binary, load_irix_library,
++	NULL, THIS_MODULE, load_irix_binary,
++#ifdef CONFIG_BINFMT_ELF_AOUT
++	load_irix_library,
++#else
++	NULL,
++#endif
+ 	irix_core_dump, PAGE_SIZE
+ };
+ 
+@@ -819,6 +825,7 @@
+ 	goto out;
+ }
+ 
++#ifdef CONFIG_BINFMT_ELF_AOUT
+ /* This is really simpleminded and specialized - we are loading an
+  * a.out library that is given an ELF header.
+  */
+@@ -897,6 +904,7 @@
+ 	kfree(elf_phdata);
+ 	return 0;
+ }
++#endif
+ 
+ /* Called through irix_syssgi() to map an elf image given an FD,
+  * a phdr ptr USER_PHDRP in userspace, and a count CNT telling how many
+Index: linux-2.6.23-rc9/fs/binfmt_elf.c
+===================================================================
+--- linux-2.6.23-rc9.orig/fs/binfmt_elf.c	2007-10-09 00:28:54.000000000 +0200
++++ linux-2.6.23-rc9/fs/binfmt_elf.c	2007-10-09 00:28:57.000000000 +0200
+@@ -44,7 +44,9 @@
+ #include <asm/page.h>
+ 
+ static int load_elf_binary(struct linux_binprm *bprm, struct pt_regs *regs);
++#ifdef CONFIG_BINFMT_ELF_AOUT
+ static int load_elf_library(struct file *);
++#endif
+ static unsigned long elf_map (struct file *, unsigned long, struct elf_phdr *, int, int);
+ 
+ /*
+@@ -74,7 +76,11 @@
+ static struct linux_binfmt elf_format = {
+ 		.module		= THIS_MODULE,
+ 		.load_binary	= load_elf_binary,
++#ifdef CONFIG_BINFMT_ELF_AOUT
+ 		.load_shlib	= load_elf_library,
++#else
++		.load_shlib	= NULL,
++#endif
+ 		.core_dump	= elf_core_dump,
+ 		.min_coredump	= ELF_EXEC_PAGESIZE,
+ 		.hasvdso	= 1
+@@ -461,6 +467,7 @@
+ 	return error;
+ }
+ 
++#ifdef CONFIG_BINFMT_ELF_AOUT
+ static unsigned long load_aout_interp(struct exec *interp_ex,
+ 		struct file *interpreter)
+ {
+@@ -506,6 +513,7 @@
+ out:
+ 	return elf_entry;
+ }
++#endif
+ 
+ /*
+  * These are the functions used to load ELF style executables and shared
+@@ -513,7 +521,9 @@
+  */
+ 
+ #define INTERPRETER_NONE 0
++#ifdef CONFIG_BINFMT_ELF_AOUT
+ #define INTERPRETER_AOUT 1
++#endif
+ #define INTERPRETER_ELF 2
+ 
+ #ifndef STACK_RND_MASK
+@@ -553,7 +563,9 @@
+ 	unsigned long elf_entry, interp_load_addr = 0;
+ 	unsigned long start_code, end_code, start_data, end_data;
+ 	unsigned long reloc_func_desc = 0;
++#ifdef CONFIG_BINFMT_ELF_AOUT
+ 	char passed_fileno[6];
++#endif
+ 	struct files_struct *files;
+ 	int executable_stack = EXSTACK_DEFAULT;
+ 	unsigned long def_flags = 0;
+@@ -730,12 +742,14 @@
+ 
+ 	/* Some simple consistency checks for the interpreter */
+ 	if (elf_interpreter) {
++#ifdef CONFIG_BINFMT_ELF_AOUT
+ 		interpreter_type = INTERPRETER_ELF | INTERPRETER_AOUT;
+ 
+ 		/* Now figure out which format our binary is */
+ 		if ((N_MAGIC(loc->interp_ex) != OMAGIC) &&
+ 		    (N_MAGIC(loc->interp_ex) != ZMAGIC) &&
+ 		    (N_MAGIC(loc->interp_ex) != QMAGIC))
++#endif
+ 			interpreter_type = INTERPRETER_ELF;
+ 
+ 		if (memcmp(loc->interp_elf_ex.e_ident, ELFMAG, SELFMAG) != 0)
+@@ -745,6 +759,7 @@
+ 		if (!interpreter_type)
+ 			goto out_free_dentry;
+ 
++#ifdef CONFIG_BINFMT_ELF_AOUT
+ 		/* Make sure only one type was selected */
+ 		if ((interpreter_type & INTERPRETER_ELF) &&
+ 		     interpreter_type != INTERPRETER_ELF) {
+@@ -752,6 +767,7 @@
+ 			// printk(KERN_WARNING "ELF: Ambiguous type, using ELF\n");
+ 			interpreter_type = INTERPRETER_ELF;
+ 		}
++#endif
+ 		/* Verify the interpreter has a valid arch */
+ 		if ((interpreter_type == INTERPRETER_ELF) &&
+ 		    !elf_check_arch(&loc->interp_elf_ex))
+@@ -763,6 +779,8 @@
+ 
+ 	/* OK, we are done with that, now set up the arg stuff,
+ 	   and then start this sucker up */
++
++#ifdef CONFIG_BINFMT_ELF_AOUT
+ 	if ((!bprm->sh_bang) && (interpreter_type == INTERPRETER_AOUT)) {
+ 		char *passed_p = passed_fileno;
+ 		sprintf(passed_fileno, "%d", elf_exec_fileno);
+@@ -774,6 +792,7 @@
+ 			bprm->argc++;
+ 		}
+ 	}
++#endif
+ 
+ 	/* Flush all traces of the currently running executable */
+ 	retval = flush_old_exec(bprm);
+@@ -950,10 +969,12 @@
+ 	}
+ 
+ 	if (elf_interpreter) {
++#ifdef CONFIG_BINFMT_ELF_AOUT
+ 		if (interpreter_type == INTERPRETER_AOUT)
+ 			elf_entry = load_aout_interp(&loc->interp_ex,
+ 						     interpreter);
+ 		else
++#endif
+ 			elf_entry = load_elf_interp(&loc->interp_elf_ex,
+ 						    interpreter,
+ 						    &interp_load_addr);
+@@ -979,7 +1000,9 @@
+ 
+ 	kfree(elf_phdata);
+ 
++#ifdef CONFIG_BINFMT_ELF_AOUT
+ 	if (interpreter_type != INTERPRETER_AOUT)
++#endif
+ 		sys_close(elf_exec_fileno);
+ 
+ 	set_binfmt(&elf_format);
+@@ -994,6 +1017,7 @@
+ 
+ 	compute_creds(bprm);
+ 	current->flags &= ~PF_FORKNOEXEC;
++#ifdef CONFIG_BINFMT_ELF_AOUT
+ 	retval = create_elf_tables(bprm, &loc->elf_ex,
+ 			  (interpreter_type == INTERPRETER_AOUT),
+ 			  load_addr, interp_load_addr);
+@@ -1004,6 +1028,9 @@
+ 	/* N.B. passed_fileno might not be initialized? */
+ 	if (interpreter_type == INTERPRETER_AOUT)
+ 		current->mm->arg_start += strlen(passed_fileno) + 1;
++#else
++	create_elf_tables(bprm, &loc->elf_ex, 0, load_addr, interp_load_addr);
++#endif
+ 	current->mm->end_code = end_code;
+ 	current->mm->start_code = start_code;
+ 	current->mm->start_data = start_data;
+@@ -1065,6 +1092,7 @@
+ 	goto out;
+ }
+ 
++#ifdef CONFIG_BINFMT_ELF_AOUT
+ /* This is really simpleminded and specialized - we are loading an
+    a.out library that is given an ELF header. */
+ static int load_elf_library(struct file *file)
+@@ -1148,6 +1176,7 @@
+ out:
+ 	return error;
+ }
++#endif
+ 
+ /*
+  * Note that some platforms still use traditional core dumps and not
+Index: linux-2.6.23-rc9/fs/exec.c
+===================================================================
+--- linux-2.6.23-rc9.orig/fs/exec.c	2007-10-09 00:28:54.000000000 +0200
++++ linux-2.6.23-rc9/fs/exec.c	2007-10-09 00:28:57.000000000 +0200
+@@ -126,6 +126,7 @@
+  */
+ asmlinkage long sys_uselib(const char __user * library)
+ {
++#if defined(CONFIG_BINFMT_AOUT) || defined(CONFIG_BINFMT_AOUT_MODULE) || defined(CONFIG_BINFMT_ELF_AOUT)
+ 	struct file * file;
+ 	struct nameidata nd;
+ 	int error;
+@@ -176,6 +177,9 @@
+ 	release_open_intent(&nd);
+ 	path_release(&nd);
+ 	goto out;
++#else
++	return -ENOSYS;
++#endif
+ }
+ 
+ #ifdef CONFIG_MMU
+Index: linux-2.6.23-rc9/init/Kconfig
+===================================================================
+--- linux-2.6.23-rc9.orig/init/Kconfig	2007-10-09 00:28:54.000000000 +0200
++++ linux-2.6.23-rc9/init/Kconfig	2007-10-09 00:29:45.000000000 +0200
+@@ -728,6 +728,15 @@
+ 	help
+ 	  Enable support for standard #!-style shell scripts.
+ 
++config BINFMT_ELF_AOUT
++	bool "ELF binaries with a.out linkage" if EMBEDDED
++	depends on BINFMT_ELF
++	default BINFMT_AOUT
++	help
++	  The kernel may support ELF executables which use an a.out format
++	  interpreter (dynamic linker) and/or a.out shared libraries, in
++	  addition to the usual ELF-ELF setups. You shouldn't need this.
++
+ endmenu		# General setup
+ 
+ config RT_MUTEXES

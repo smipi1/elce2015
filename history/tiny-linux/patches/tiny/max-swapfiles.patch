@@ -1,0 +1,82 @@
+
+configurable number of swapfiles
+
+
+ include/linux/swap.h    |    2 	1 +	1 -	0 !
+ include/linux/swapops.h |   24 	24 +	0 -	0 !
+ init/Kconfig            |    7 	7 +	0 -	0 !
+ 3 files changed, 32 insertions(+), 1 deletion(-)
+
+Index: linux-2.6.23-rc9/include/linux/swap.h
+===================================================================
+--- linux-2.6.23-rc9.orig/include/linux/swap.h	2007-10-08 23:51:25.000000000 +0200
++++ linux-2.6.23-rc9/include/linux/swap.h	2007-10-09 00:29:04.000000000 +0200
+@@ -31,7 +31,7 @@
+  * on 32-bit-pgoff_t architectures.  And that assumes that the architecture packs
+  * the type/offset into the pte as 5/27 as well.
+  */
+-#define MAX_SWAPFILES_SHIFT	5
++#define MAX_SWAPFILES_SHIFT	CONFIG_MAX_SWAPFILES_SHIFT
+ #ifndef CONFIG_MIGRATION
+ #define MAX_SWAPFILES		(1 << MAX_SWAPFILES_SHIFT)
+ #else
+Index: linux-2.6.23-rc9/include/linux/swapops.h
+===================================================================
+--- linux-2.6.23-rc9.orig/include/linux/swapops.h	2007-07-09 01:32:17.000000000 +0200
++++ linux-2.6.23-rc9/include/linux/swapops.h	2007-10-09 00:29:04.000000000 +0200
+@@ -15,6 +15,9 @@
+ /*
+  * Store a type+offset into a swp_entry_t in an arch-independent format
+  */
++
++#if MAX_SWAPFILES_SHIFT > 0
++
+ static inline swp_entry_t swp_entry(unsigned long type, pgoff_t offset)
+ {
+ 	swp_entry_t ret;
+@@ -42,6 +45,27 @@
+ 	return entry.val & SWP_OFFSET_MASK(entry);
+ }
+ 
++#else /* avoid undefined shift operations */
++
++static inline swp_entry_t swp_entry(unsigned type, pgoff_t offset)
++{
++	swp_entry_t ret;
++	ret.val = offset;
++	return ret;
++}
++
++static inline unsigned swp_type(swp_entry_t entry)
++{
++	return 0;
++}
++
++static inline pgoff_t swp_offset(swp_entry_t entry)
++{
++	return entry.val;
++}
++
++#endif
++
+ /*
+  * Convert the arch-dependent pte representation of a swp_entry_t into an
+  * arch-independent swp_entry_t.
+Index: linux-2.6.23-rc9/init/Kconfig
+===================================================================
+--- linux-2.6.23-rc9.orig/init/Kconfig	2007-10-09 00:28:57.000000000 +0200
++++ linux-2.6.23-rc9/init/Kconfig	2007-10-09 00:29:43.000000000 +0200
+@@ -737,6 +737,13 @@
+ 	  interpreter (dynamic linker) and/or a.out shared libraries, in
+ 	  addition to the usual ELF-ELF setups. You shouldn't need this.
+ 
++config MAX_SWAPFILES_SHIFT
++	int "Number of swap files log2 (0 => 1, 5 => 32)" if EMBEDDED
++	range 0 5
++	default 5
++	help
++	  Select the maximum number of swapfiles (5 for default).
++
+ endmenu		# General setup
+ 
+ config RT_MUTEXES

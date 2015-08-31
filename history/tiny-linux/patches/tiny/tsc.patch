@@ -1,0 +1,121 @@
+
+configurable TSC timer support
+
+From: Zwane Mwaikambo <zwane@arm.linux.org.uk>
+Subject: Re: [PATCH][2.6-tiny] optional timer_tsc
+
+
+I'm special;
+
+Index: linux-2.6.1-rc1-tiny2/init/Kconfig===================================================================
+RCS file: /home/cvsroot/linux-2.6.1-rc1-tiny2/init/Kconfig,v
+retrieving revision 1.3
+diff -u -p -B -r1.3 Kconfig
+
+
+ tiny-mpm/arch/i386/kernel/timers/Makefile    |    3 ++-
+ tiny-mpm/arch/i386/kernel/timers/timer.c     |   16 ++++++++++++++--
+ tiny-mpm/arch/i386/kernel/timers/timer_tsc.c |    5 ++---
+ tiny-mpm/init/Kconfig                        |    7 +++++++
+ 4 files changed, 25 insertions(+), 6 deletions(-)
+
+Index: linux-2.6.16.19/arch/i386/kernel/timers/Makefile
+===================================================================
+--- linux-2.6.16.19.orig/arch/i386/kernel/timers/Makefile	2006-06-23 17:05:11.000000000 -0700
++++ linux-2.6.16.19/arch/i386/kernel/timers/Makefile	2006-06-23 17:06:28.000000000 -0700
+@@ -2,8 +2,9 @@
+ # Makefile for x86 timers
+ #
+ 
+-obj-y := timer.o timer_none.o timer_tsc.o timer_pit.o common.o
++obj-y := timer.o timer_none.o timer_pit.o common.o
+ 
++obj-$(CONFIG_X86_TSC_TIMER)	+= timer_tsc.o
+ obj-$(CONFIG_X86_CYCLONE_TIMER)	+= timer_cyclone.o
+ obj-$(CONFIG_HPET_TIMER)	+= timer_hpet.o
+ obj-$(CONFIG_X86_PM_TIMER)	+= timer_pm.o
+Index: linux-2.6.16.19/arch/i386/kernel/timers/timer.c
+===================================================================
+--- linux-2.6.16.19.orig/arch/i386/kernel/timers/timer.c	2006-06-23 17:05:11.000000000 -0700
++++ linux-2.6.16.19/arch/i386/kernel/timers/timer.c	2006-06-23 17:06:28.000000000 -0700
+@@ -1,16 +1,17 @@
+ #include <linux/init.h>
+ #include <linux/kernel.h>
+ #include <linux/string.h>
++#include <linux/jiffies.h>
++#include <linux/timex.h>
+ #include <asm/timer.h>
+ 
+-#ifdef CONFIG_HPET_TIMER
+ /*
+  * HPET memory read is slower than tsc reads, but is more dependable as it
+  * always runs at constant frequency and reduces complexity due to
+  * cpufreq. So, we prefer HPET timer to tsc based one. Also, we cannot use
+  * timer_pit when HPET is active. So, we default to timer_tsc.
+  */
+-#endif
++
+ /* list of timers, ordered by preference, NULL terminated */
+ static struct init_timer_opts* __initdata timers[] = {
+ #ifdef CONFIG_X86_CYCLONE_TIMER
+@@ -22,11 +23,15 @@
+ #ifdef CONFIG_X86_PM_TIMER
+ 	&timer_pmtmr_init,
+ #endif
++#ifdef CONFIG_X86_TSC_TIMER
+ 	&timer_tsc_init,
++#endif
+ 	&timer_pit_init,
+ 	NULL,
+ };
+ 
++int tsc_disable __devinitdata = 0;
++
+ static char clock_override[10] __initdata;
+ 
+ static int __init clock_setup(char* str)
+@@ -73,3 +78,10 @@
+ 	}
+ 	return -1;
+ }
++
++#ifndef CONFIG_X86_TSC_TIMER
++unsigned long long sched_clock(void)
++{
++	return (unsigned long long)jiffies_64 * (1000000000 / HZ);
++}
++#endif
+Index: linux-2.6.16.19/arch/i386/kernel/timers/timer_tsc.c
+===================================================================
+--- linux-2.6.16.19.orig/arch/i386/kernel/timers/timer_tsc.c	2006-06-23 17:05:11.000000000 -0700
++++ linux-2.6.16.19/arch/i386/kernel/timers/timer_tsc.c	2006-06-23 17:06:28.000000000 -0700
+@@ -34,9 +34,9 @@
+ 
+ static inline void cpufreq_delayed_get(void);
+ 
+-int tsc_disable __devinitdata = 0;
++extern int tsc_disable;
+ 
+-static int use_tsc;
++int use_tsc;
+ /* Number of usecs that the last interrupt was delayed */
+ static int delay_at_last_interrupt;
+ 
+Index: linux-2.6.16.19/init/Kconfig
+===================================================================
+--- linux-2.6.16.19.orig/init/Kconfig	2006-06-23 17:06:28.000000000 -0700
++++ linux-2.6.16.19/init/Kconfig	2006-06-23 17:06:28.000000000 -0700
+@@ -628,6 +628,13 @@
+ 	  Disable this only if you know your target machine is unaffected
+ 	  by PCI quirks.
+ 
++config X86_TSC_TIMER
++	depends X86
++	default y
++	bool "Enable TSC timer" if EMBEDDED
++	help
++	  This enables support for the Time Stamp Counter timer.
++
+ endmenu		# General setup
+ 
+ config CRC32_CALC

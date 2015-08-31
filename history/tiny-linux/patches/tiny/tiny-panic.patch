@@ -1,0 +1,113 @@
+
+configurable panic
+
+
+
+ include/linux/kernel.h |    5 	5 +	0 -	0 !
+ init/Kconfig           |    8 	8 +	0 -	0 !
+ kernel/panic.c         |   24 	22 +	2 -	0 !
+ 3 files changed, 35 insertions(+), 2 deletions(-)
+
+Index: linux-2.6.23-rc9/include/linux/kernel.h
+===================================================================
+--- linux-2.6.23-rc9.orig/include/linux/kernel.h	2007-10-08 23:51:25.000000000 +0200
++++ linux-2.6.23-rc9/include/linux/kernel.h	2007-10-09 00:30:25.000000000 +0200
+@@ -106,8 +106,13 @@
+ 
+ extern struct atomic_notifier_head panic_notifier_list;
+ extern long (*panic_blink)(long time);
++#ifdef CONFIG_FULL_PANIC
+ NORET_TYPE void panic(const char * fmt, ...)
+ 	__attribute__ ((NORET_AND format (printf, 1, 2))) __cold;
++#else
++#define panic(fmt, ...) tiny_panic(0, ## __VA_ARGS__)
++NORET_TYPE void tiny_panic(int a, ...) ATTRIB_NORET;
++#endif
+ extern void oops_enter(void);
+ extern void oops_exit(void);
+ extern int oops_may_print(void);
+Index: linux-2.6.23-rc9/init/Kconfig
+===================================================================
+--- linux-2.6.23-rc9.orig/init/Kconfig	2007-10-08 23:52:27.000000000 +0200
++++ linux-2.6.23-rc9/init/Kconfig	2007-10-09 00:30:25.000000000 +0200
+@@ -463,6 +463,14 @@
+ 	  This option causes the bootmem allocator to print caller and size
+           for each allocation.
+ 
++config FULL_PANIC
++	default y
++	bool "Full panic reporting data" if EMBEDDED
++	help
++	  This includes text descriptions of panics in addition to stack dumps.
++          Disabling compiles out the explanations for panics, saving
++	  string space. Use with caution.
++
+ config BASE_FULL
+ 	default y
+ 	bool "Enable full-sized data structures for core" if EMBEDDED
+Index: linux-2.6.23-rc9/kernel/panic.c
+===================================================================
+--- linux-2.6.23-rc9.orig/kernel/panic.c	2007-10-08 23:51:25.000000000 +0200
++++ linux-2.6.23-rc9/kernel/panic.c	2007-10-09 00:30:25.000000000 +0200
+@@ -56,12 +56,18 @@
+  *
+  *	This function never returns.
+  */
+- 
++
++#ifdef CONFIG_FULL_PANIC
+ NORET_TYPE void panic(const char * fmt, ...)
+ {
+-	long i;
+ 	static char buf[1024];
+ 	va_list args;
++#else
++NORET_TYPE void tiny_panic(int a, ...)
++{
++#endif
++	long i;
++
+ #if defined(CONFIG_S390)
+         unsigned long caller = (unsigned long) __builtin_return_address(0);
+ #endif
+@@ -74,10 +80,16 @@
+ 	preempt_disable();
+ 
+ 	bust_spinlocks(1);
++
++#ifdef CONFIG_FULL_PANIC
+ 	va_start(args, fmt);
+ 	vsnprintf(buf, sizeof(buf), fmt, args);
+ 	va_end(args);
+ 	printk(KERN_EMERG "Kernel panic - not syncing: %s\n",buf);
++#else
++	printk(KERN_EMERG "Kernel panic - not syncing\n");
++#endif
++
+ 	bust_spinlocks(0);
+ 
+ 	/*
+@@ -96,7 +108,11 @@
+ 	smp_send_stop();
+ #endif
+ 
++#ifdef CONFIG_FULL_PANIC
+ 	atomic_notifier_call_chain(&panic_notifier_list, 0, buf);
++#else
++	atomic_notifier_call_chain(&panic_notifier_list, 0, "");
++#endif
+ 
+ 	if (!panic_blink)
+ 		panic_blink = no_blink;
+@@ -139,7 +155,11 @@
+ 	}
+ }
+ 
++#ifdef CONFIG_FULL_PANIC
+ EXPORT_SYMBOL(panic);
++#else
++EXPORT_SYMBOL(tiny_panic);
++#endif
+ 
+ /**
+  *	print_tainted - return a string to represent the kernel taint state.

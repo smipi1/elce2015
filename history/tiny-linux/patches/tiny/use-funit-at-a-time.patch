@@ -1,0 +1,65 @@
+
+enable -funit-at-a-time for gcc3.4
+
+From: Andi Kleen <ak@muc.de>
+
+The upcomming gcc 3.4 has a new compilation mode called unit-at-a-time.
+What it does is to first load the whole file into memory and then generate
+the output. This allows it to use a better inlining strategy, drop unused
+static functions and use -mregparm automatically for static functions.
+
+It does not seem to compile significantly slower.
+
+This is also available in some of the 3.3 based "hammer branch"
+compilers used in distributions (at least in SuSE and Mandrake)
+
+Some tests show impressive .text shrinkage from unit-at-a-time.
+
+e.g. here is the same kernel compiled with -fno-unit-at-a-time and
+-funit-at-a-time with a gcc 3.4 snapshot. The gains are really
+impressive:
+
+   text    data     bss     dec     hex filename
+4129346  708629  207240 5045215  4cfbdf vmlinux-nounitatatime
+3999250  674853  207208 4881311  4a7b9f vmlinux-unitatatime
+
+.text shrinks by over 130KB!. And .data shrinks too. 
+
+At first look the numbers look nearly too good to be true, but they have been 
+verified with several configurations and seem to be real. It looks like
+we have a lot of stupid inlines or dead functions. I'm really not 
+sure why it is that much better. But it's hard to argue with hard
+numbers.
+
+[A bloat-o-meter comparision between the two vmlinuxes can be found in 
+http://www.firstfloor.org/~andi/unit-vs-no-unit.gz . It doesn't show
+any obvious candidates unfortunately, just lots of small changes]
+
+With the gcc 3.3-hammer from SuSE 9.0 the gains are a bit smaller, but
+still noticeable (>100KB on .text)
+
+Enabling -funit-at-a-time requires at least one kernel patch (the
+"noinline" patch I sent earlier), on top of the no always inline patch required
+to make it compile on gcc 3.4.
+
+This patch enables -funit-at-a-time by default when it is available.
+
+---
+ Makefile |    4 	4 +	0 -	0 !
+ 1 files changed, 4 insertions(+)
+
+Index: linux-2.6.23-rc9/Makefile
+===================================================================
+--- linux-2.6.23-rc9.orig/Makefile	2007-10-08 23:50:31.000000000 +0200
++++ linux-2.6.23-rc9/Makefile	2007-10-09 00:31:01.000000000 +0200
+@@ -508,6 +508,10 @@
+ NOSTDINC_FLAGS += -nostdinc -isystem $(shell $(CC) -print-file-name=include)
+ CHECKFLAGS     += $(NOSTDINC_FLAGS)
+ 
++# Enable unit-at-a-time mode when possible. It shrinks the
++# kernel considerably.
++CFLAGS += $(call cc-option,-funit-at-a-time,)
++
+ # warn about C99 declaration after statement
+ CFLAGS += $(call cc-option,-Wdeclaration-after-statement,)
+ 

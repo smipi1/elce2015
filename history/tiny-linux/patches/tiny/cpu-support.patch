@@ -1,0 +1,210 @@
+
+configurable support for vendor-specific x86 CPU features
+
+
+ tiny-mpm/arch/i386/kernel/cpu/Makefile |   16 ++++----
+ tiny-mpm/arch/i386/kernel/cpu/common.c |   18 +++++++++
+ tiny-mpm/arch/i386/mm/init.c           |   12 +++++-
+ tiny-mpm/init/Kconfig                  |   62 +++++++++++++++++++++++++++++++++
+ 4 files changed, 99 insertions(+), 9 deletions(-)
+
+Index: linux-2.6.16.19/arch/i386/kernel/cpu/Makefile
+===================================================================
+--- linux-2.6.16.19.orig/arch/i386/kernel/cpu/Makefile	2006-06-23 17:05:11.000000000 -0700
++++ linux-2.6.16.19/arch/i386/kernel/cpu/Makefile	2006-06-23 17:06:28.000000000 -0700
+@@ -4,14 +4,14 @@
+ 
+ obj-y	:=	common.o proc.o
+ 
+-obj-y	+=	amd.o
+-obj-y	+=	cyrix.o
+-obj-y	+=	centaur.o
+-obj-y	+=	transmeta.o
+-obj-y	+=	intel.o intel_cacheinfo.o
+-obj-y	+=	rise.o
+-obj-y	+=	nexgen.o
+-obj-y	+=	umc.o
++obj-$(CONFIG_CPU_SUP_AMD)	+=	amd.o
++obj-$(CONFIG_CPU_SUP_CYRIX)	+=	cyrix.o
++obj-$(CONFIG_CPU_SUP_CENTAUR)	+=	centaur.o
++obj-$(CONFIG_CPU_SUP_TRANSMETA)	+=	transmeta.o
++obj-$(CONFIG_CPU_SUP_INTEL)	+=	intel.o intel_cacheinfo.o
++obj-$(CONFIG_CPU_SUP_RISE)	+=	rise.o
++obj-$(CONFIG_CPU_SUP_NEXGEN)	+=	nexgen.o
++obj-$(CONFIG_CPU_SUP_UMC)	+=	umc.o
+ 
+ obj-$(CONFIG_X86_MCE)	+=	mcheck/
+ 
+Index: linux-2.6.16.19/arch/i386/kernel/cpu/common.c
+===================================================================
+--- linux-2.6.16.19.orig/arch/i386/kernel/cpu/common.c	2006-06-23 17:06:21.000000000 -0700
++++ linux-2.6.16.19/arch/i386/kernel/cpu/common.c	2006-06-23 17:06:28.000000000 -0700
+@@ -11,6 +11,7 @@
+ #include <asm/msr.h>
+ #include <asm/io.h>
+ #include <asm/mmu_context.h>
++#include <asm/uaccess.h>
+ #ifdef CONFIG_X86_LOCAL_APIC
+ #include <asm/mpspec.h>
+ #include <asm/apic.h>
+@@ -300,7 +301,9 @@
+ 		}
+ 	}
+ 
++#ifdef CONFIG_CPU_SUP_INTEL
+ 	early_intel_workaround(c);
++#endif
+ 
+ #ifdef CONFIG_X86_HT
+ 	phys_proc_id[smp_processor_id()] = (cpuid_ebx(1) >> 24) & 0xff;
+@@ -547,15 +550,33 @@
+ 
+ void __init early_cpu_init(void)
+ {
++#ifdef CONFIG_CPU_SUP_INTEL
+ 	intel_cpu_init();
++#endif
++#ifdef CONFIG_CPU_SUP_CYRIX
+ 	cyrix_init_cpu();
++#endif
++#ifdef CONFIG_CPU_SUP_NSC
+ 	nsc_init_cpu();
++#endif
++#ifdef CONFIG_CPU_SUP_AMD
+ 	amd_init_cpu();
++#endif
++#ifdef CONFIG_CPU_SUP_CENTAUR
+ 	centaur_init_cpu();
++#endif
++#ifdef CONFIG_CPU_SUP_TRANSMETA
+ 	transmeta_init_cpu();
++#endif
++#ifdef CONFIG_CPU_SUP_RISE
+ 	rise_init_cpu();
++#endif
++#ifdef CONFIG_CPU_SUP_NEXGEN
+ 	nexgen_init_cpu();
++#endif
++#ifdef CONFIG_CPU_SUP_UMC
+ 	umc_init_cpu();
++#endif
+ 	early_cpu_detect();
+ 
+ #ifdef CONFIG_DEBUG_PAGEALLOC
+Index: linux-2.6.16.19/arch/i386/mm/init.c
+===================================================================
+--- linux-2.6.16.19.orig/arch/i386/mm/init.c	2006-06-23 17:05:11.000000000 -0700
++++ linux-2.6.16.19/arch/i386/mm/init.c	2006-06-23 17:06:28.000000000 -0700
+@@ -184,12 +184,14 @@
+ 	}
+ }
+ 
++#ifdef CONFIG_CPU_SUP_INTEL
+ static inline int page_kills_ppro(unsigned long pagenr)
+ {
+ 	if (pagenr >= 0x70000 && pagenr <= 0x7003F)
+ 		return 1;
+ 	return 0;
+ }
++#endif
+ 
+ extern int is_available_memory(efi_memory_desc_t *);
+ 
+@@ -277,7 +279,11 @@
+ 
+ void __init add_one_highpage_init(struct page *page, int pfn, int bad_ppro)
+ {
+-	if (page_is_ram(pfn) && !(bad_ppro && page_kills_ppro(pfn))) {
++	if (page_is_ram(pfn)
++#ifdef CONFIG_CPU_SUP_INTEL
++	    && !(bad_ppro && page_kills_ppro(pfn))
++#endif
++		) {
+ 		ClearPageReserved(page);
+ 		free_new_highpage(page);
+ 	} else
+@@ -577,7 +583,11 @@
+ 		BUG();
+ #endif
+ 	
++#ifdef CONFIG_CPU_SUP_INTEL
+ 	bad_ppro = ppro_with_ram_bug();
++#else
++	bad_ppro = 0;
++#endif
+ 
+ #ifdef CONFIG_HIGHMEM
+ 	/* check that fixmap and pkmap do not overlap */
+Index: linux-2.6.16.19/init/Kconfig
+===================================================================
+--- linux-2.6.16.19.orig/init/Kconfig	2006-06-23 17:06:28.000000000 -0700
++++ linux-2.6.16.19/init/Kconfig	2006-06-23 17:06:28.000000000 -0700
+@@ -635,6 +635,68 @@
+ 	help
+ 	  This enables support for the Time Stamp Counter timer.
+ 
++menuconfig PROCESSOR_SELECT
++	depends X86
++	default y
++	bool "Supported processor vendors" if EMBEDDED
++	help
++	  This lets you choose what x86 vendor support code your kernel
++	  will include.
++
++config CPU_SUP_INTEL
++       default y
++       bool "Support Intel processors" if PROCESSOR_SELECT
++       help
++         This enables extended support for Intel processors
++
++config CPU_SUP_CYRIX
++       default y
++       bool "Support Cyrix processors" if PROCESSOR_SELECT
++       help
++         This enables extended support for Cyrix processors
++
++config CPU_SUP_NSC
++       default y
++       bool "Support NSC processors" if PROCESSOR_SELECT
++       help
++         This enables extended support for NSC processors
++
++config CPU_SUP_AMD
++       default y
++       bool "Support AMD processors" if PROCESSOR_SELECT
++       help
++         This enables extended support for AMD processors
++
++config CPU_SUP_CENTAUR
++       default y
++       bool "Support Centaur processors" if PROCESSOR_SELECT
++       help
++         This enables extended support for Centaur processors
++
++config CPU_SUP_TRANSMETA
++       default y
++       bool "Support Transmeta processors" if PROCESSOR_SELECT
++       help
++         This enables extended support for Transmeta processors
++
++config CPU_SUP_RISE
++       default y
++       bool "Support Rise processors" if PROCESSOR_SELECT
++       help
++         This enables extended support for Rise processors
++
++config CPU_SUP_NEXGEN
++       default y
++       bool "Support NexGen processors" if PROCESSOR_SELECT
++       help
++         This enables extended support for NexGen processors
++
++config CPU_SUP_UMC
++       default y
++       bool "Support UMC processors" if PROCESSOR_SELECT
++       help
++         This enables extended support for UMC processors
++
+ endmenu		# General setup
+ 
+ config CRC32_CALC

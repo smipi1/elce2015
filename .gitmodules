@@ -1,0 +1,6 @@
+[submodule "buildroot"]
+	path = buildroot
+	url = ssh://git@github.com/smipi1/elce2015-buildroot.git
+[submodule "linux"]
+	path = linux
+	url = ssh://git@github.com/smipi1/elce2015-tiny-linux.git
