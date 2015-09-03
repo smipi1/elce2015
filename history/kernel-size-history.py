@@ -1,0 +1,128 @@
+#!/usr/bin/python3.4
+
+import sys, os, re, argparse, requests, tarfile
+
+class defaults:
+    versions = ["3.0",
+                "3.1",
+                "3.2",
+                "3.3",
+                "3.4",
+                "3.5",
+                "3.6",
+                "3.7",
+                "3.8",
+                "3.9",
+                "3.10",
+                "3.11",
+                "3.12",
+                "3.13",
+                "3.14",
+                "3.15",
+                "3.16",
+                "3.17",
+                "3.18",
+                "3.19",
+                "4.0",
+                "4.1"]
+    sourceMirror="https://www.kernel.org/pub/linux/kernel"
+    class dir:
+        download="dl"
+        build="build_dir"
+
+def getsizes(file):
+    sym = {}
+    for l in os.popen("nm --size-sort " + file).readlines():
+        size, type, name = l[:-1].split()
+        if type in "tTdDbBrR":
+            # strip generated symbols
+            if name.startswith("__mod_"): continue
+            if name.startswith("SyS_"): continue
+            if name.startswith("compat_SyS_"): continue
+            if name == "linux_banner": continue
+            # statics and some other optimizations adds random .NUMBER
+            name = re.sub(r'\.[0-9]+', '', name)
+            sym[name] = sym.get(name, 0) + int(size, 16)
+    return sym
+
+def mirrorDir(version):
+    return "v" + version.split(".")[0] + ".x"
+
+def wget(url, progress=True, progressPrefix=None, out="."):
+    if os.path.isdir(out):
+        filepath = os.path.join(out, os.path.basename(url))
+    else:
+        filepath = out
+    r = requests.get(url, stream=True)
+    chunkSize=1024
+    total = int(r.headers['content-length'])
+    size = 0
+    with open(filepath, 'wb') as f:
+        for chunk in r.iter_content(chunk_size=chunkSize):
+            f.write(chunk)
+            size += chunkSize
+            if progress:
+                sys.stdout.write("%s%1.3f MB (%1.1f %%)\r" % (progressPrefix, size / 1024.0 / 1024.0, 100.0 * size / total))
+    if progress:
+        print()
+    if r.status_code != requests.codes.ok:
+        os.unlink(filepath)
+        r.raise_for_status()
+    return filepath
+
+def fetchKernelSource(args, version):
+    if not os.path.exists(args.dl_dir):
+        os.makedirs(args.dl_dir)
+    url = args.src_mirror + '/' + mirrorDir(version) + '/linux-' + version + '.tar.xz'
+    wget(url, progressPrefix="Fetch " + url + " to " + args.dl_dir + ": ", out=args.dl_dir)
+
+def extractKernelSource(args, version):
+    tarfilepath = os.path.join(args.dl_dir, 'linux-' + version + '.tar.xz')
+    if not os.path.exists(args.build_dir):
+        os.makedirs(args.build_dir)
+    print("Extract " + tarfilepath + " to " + args.build_dir)
+    with tarfile.open(tarfilepath, mode="r") as f:
+        f.extractall(args.build_dir)
+    
+def buildKernelImages(args, version):
+    pass
+    
+def main():
+    parser = argparse.ArgumentParser(description='Kernel size history tool-box.')
+    parser.add_argument('-f', '--fetch-sources', dest='get', action='store_const',
+                        const=True, default=False,
+                        help='fetch source archives')
+    parser.add_argument('-x', '--extract-sources', dest='extract', action='store_const',
+                        const=True, default=False,
+                        help='extract sources (all sources must have been fetched)')
+    parser.add_argument('-b', '--build-images', dest='build', action='store_const',
+                        const=True, default=False,
+                        help='build images (all sources must have been extracted)')
+    parser.add_argument('-a', '--all', dest='all', action='store_const',
+                        const=True, default=False,
+                        help='perform all steps')
+    parser.add_argument('versions', nargs='*', type=str,
+                        default=defaults.versions,
+                        help='kernel version(s) to perform specified operations on (default: %(default)s)')
+    parser.add_argument('--download-dir', dest='dl_dir',
+                        type=str, default=defaults.dir.download,
+                        help='download destination directory (default: %(default)s)')
+    parser.add_argument('--build-dir', dest='build_dir',
+                        type=str, default=defaults.dir.build,
+                        help='build directory (default: %(default)s)')
+    parser.add_argument('--source-mirror', dest='src_mirror',
+                        type=str, default=defaults.sourceMirror,
+                        help='download destination directory (default: %(default)s)')
+    
+    args = parser.parse_args()
+    
+    for version in args.versions:
+        if args.get:
+            fetchKernelSource(args, version)
+        if args.extract:
+            extractKernelSource(args, version)
+        if args.build:
+            buildKernelImages(args, version)
+
+if __name__ == "__main__":
+    main()

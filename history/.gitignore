@@ -1,0 +1,5 @@
+bin
+dl
+build_dir
+*.tmp
+
