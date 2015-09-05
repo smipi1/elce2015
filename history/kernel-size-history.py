@@ -12,23 +12,12 @@ class defaults:
         build="build_dir"
         bin="bin"
 
-def getsizes(file):
-    sym = {}
-    for l in os.popen("nm --size-sort " + file).readlines():
-        size, type, name = l[:-1].split()
-        if type in "tTdDbBrR":
-            # strip generated symbols
-            if name.startswith("__mod_"): continue
-            if name.startswith("SyS_"): continue
-            if name.startswith("compat_SyS_"): continue
-            if name == "linux_banner": continue
-            # statics and some other optimizations adds random .NUMBER
-            name = re.sub(r'\.[0-9]+', '', name)
-            sym[name] = sym.get(name, 0) + int(size, 16)
-    return sym
-
 def mirrorDir(version):
-    return "v" + version.split(".")[0] + ".x"
+    v = version.split(".")
+    if v[0] is "2":
+        return "v" + v[0] + "." + v[1]
+    else:
+        return "v" + version.split(".")[0] + ".x"
 
 def showProgress(prefix, size, total):
     sys.stdout.write("%s%1.3f MB (%1.1f %%)\r" %
