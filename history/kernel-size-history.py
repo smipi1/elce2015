@@ -127,9 +127,9 @@ def plotKernelSizeHistory(args):
     bzImageSizes = []
     for v in args.versions:
         s = getKernelSizeInformation(args, v)
-        romSizes.append(s["data"] + s["text"])
-        ramSizes.append(s["bss"] + s["data"])
-        bzImageSizes.append(s["bzImage"])
+        romSizes.append((s["data"] + s["text"]) / args.plot_unit_scale)
+        ramSizes.append((s["bss"] + s["data"]) / args.plot_unit_scale)
+        bzImageSizes.append(s["bzImage"] / args.plot_unit_scale)
     xAxis = range(0, len(args.versions))
     plt.xticks(xAxis, args.versions)
     rom, = plt.plot(xAxis, romSizes, label='ROM (data + text)')
@@ -150,6 +150,8 @@ def plotKernelSizeHistory(args):
                 xytext=(xAxis[-1],bzImageSizes[-1]*1.05),
                 horizontalalignment='right',
                 verticalalignment='bottom')
+    plt.ylabel(args.plot_unit_name)
+    plt.xlabel('Kernel Version')
     plt.show()
     
 def main():
@@ -193,6 +195,12 @@ def main():
     parser.add_argument('--arch', dest='arch',
                         type=str, default="x86",
                         help='architecture (default: %(default)s)')
+    parser.add_argument('--plot-unit-scale', dest='plot_unit_scale',
+                        type=float, default=1024.0,
+                        help='plot-units scale (default: %(default)s)')
+    parser.add_argument('--plot-unit-name', dest='plot_unit_name',
+                        type=str, default="kB",
+                        help='plot-unit name (default: %(default)s)')
     parser.add_argument('--kernel-defconfig', dest='kernel_defconfig',
                         type=str, default="allnoconfig",
                         help='kernel defconfig to configure with (default: %(default)s)')
