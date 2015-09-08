@@ -1,6 +1,7 @@
 #!/usr/bin/python3
 
 import sys, os, re, argparse, requests, tarfile, subprocess, shlex, shutil, glob
+import matplotlib.pyplot as plt
 
 class defaults:
     versions = ["3.0", "3.1", "3.2", "3.3", "3.4", "3.5", "3.6", "3.7", "3.8",
@@ -53,6 +54,15 @@ def archiveBase(version):
 def kernelArchive(version):
     return archiveBase(version) + '.tar.xz'
 
+def binBase(args, version):
+    return os.path.join(args.bin_dir, args.arch, archiveBase(version))
+
+def kernelElf(args, version):
+    return os.path.join(binBase(args, version), "vmlinux")
+
+def kernelCompressed(args, version):
+    return os.path.join(binBase(args, version), "bzImage")
+
 def fetchKernelSource(args, version):
     if not os.path.exists(args.dl_dir):
         os.makedirs(args.dl_dir)
@@ -69,18 +79,9 @@ def extractKernelSource(args, version):
     with tarfile.open(tarfilepath, mode="r") as f:
         f.extractall(args.build_dir)
 
-def deleteKernelSource(args, version):
-    build_dir = os.path.join(args.build_dir, archiveBase(version))
-    print("Deleting " + build_dir)
-    shutil.rmtree(build_dir)
-    
 def buildKernelImages(args, version):
-    if not os.path.exists(args.bin_dir):
-        os.makedirs(args.bin_dir)
-    bin_dir_arch = os.path.join(args.bin_dir, args.arch)
-    if not os.path.exists(bin_dir_arch):
-        os.makedirs(bin_dir_arch)
-    bin_dir = os.path.join(bin_dir_arch, archiveBase(version))
+    bin_dir = binBase(args, version)
+    os.makedirs(bin_dir, exist_ok=True)
     build_dir = os.path.join(args.build_dir, archiveBase(version))
     make = ["make",  args.make_args, "ARCH=" + args.arch ]
     makeConfig = make + [ args.kernel_defconfig ] 
@@ -96,13 +97,60 @@ def buildKernelImages(args, version):
         p.wait()
         if p.returncode:
             sys.exit("error: failed building kernel for build")
-    if not os.path.exists(bin_dir):
-        os.makedirs(bin_dir)
     images = [ os.path.join(build_dir, "vmlinux") ]
     images += glob.glob(os.path.join(build_dir, "arch", args.arch, "boot", "*Image"))
     for image in images:
         print("Copying " + image + " to " + bin_dir)
         shutil.copy(image, bin_dir)
+
+def deleteKernelSource(args, version):
+    build_dir = os.path.join(args.build_dir, archiveBase(version))
+    print("Deleting " + build_dir)
+    shutil.rmtree(build_dir)
+
+def getKernelSizeInformation(args, version):
+    sizes = {}
+    sizes["bzImage"] = os.stat(kernelCompressed(args, version)).st_size
+    size = [ "size", kernelElf(args, version) ]
+    fieldLine, valueLine = subprocess.check_output(size).decode('utf-8').strip().splitlines()
+    fields = fieldLine.split()
+    values = valueLine.split()
+    for i, f in enumerate(fields):
+        if f in [ "data", "bss", "text", "dec" ]:
+            sizes[f] = int(values[i])
+    return sizes
+
+def plotKernelSizeHistory(args):
+    sizes = {}
+    romSizes = []
+    ramSizes = []
+    bzImageSizes = []
+    for v in args.versions:
+        s = getKernelSizeInformation(args, v)
+        romSizes.append(s["data"] + s["text"])
+        ramSizes.append(s["bss"] + s["data"])
+        bzImageSizes.append(s["bzImage"])
+    xAxis = range(0, len(args.versions))
+    plt.xticks(xAxis, args.versions)
+    rom, = plt.plot(xAxis, romSizes, label='ROM (data + text)')
+    ram, = plt.plot(xAxis, ramSizes, label='RAM (bss + data)'),
+    bzi, = plt.plot(xAxis, bzImageSizes, label='Compressed bzImage')
+    plt.annotate('ROM(data+text)',
+                xy=(xAxis[-1],romSizes[-1]),
+                xytext=(xAxis[-1],romSizes[-1]*1.05),
+                horizontalalignment='right',
+                verticalalignment='bottom')
+    plt.annotate('RAM(bss+data)',
+                xy=(xAxis[-1],ramSizes[-1]),
+                xytext=(xAxis[-1],ramSizes[-1]*1.05),
+                horizontalalignment='right',
+                verticalalignment='bottom')
+    plt.annotate('Compressed',
+                xy=(xAxis[-1],bzImageSizes[-1]),
+                xytext=(xAxis[-1],bzImageSizes[-1]*1.05),
+                horizontalalignment='right',
+                verticalalignment='bottom')
+    plt.show()
     
 def main():
     parser = argparse.ArgumentParser(description='Kernel size history tool-box.')
@@ -118,6 +166,9 @@ def main():
     parser.add_argument('-d', '--delete-sources', dest='delete_sources', action='store_const',
                         const=True, default=False,
                         help='delete the sources when done')
+    parser.add_argument('-p', '--plot-history', dest='plot_history', action='store_const',
+                        const=True, default=False,
+                        help='plot kernel size history')
     parser.add_argument('-a', '--all', dest='all', action='store_const',
                         const=True, default=False,
                         help='perform all steps')
@@ -157,6 +208,9 @@ def main():
             buildKernelImages(args, version)
         if args.all or args.delete_sources:
             deleteKernelSource(args, version)
+            
+    if args.all or args.plot_history:
+        plotKernelSizeHistory(args)
 
 if __name__ == "__main__":
     main()
