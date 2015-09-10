@@ -83,19 +83,25 @@ def buildKernelImages(args, version):
     bin_dir = binBase(args, version)
     os.makedirs(bin_dir, exist_ok=True)
     build_dir = os.path.join(args.build_dir, archiveBase(version))
+    configPath=os.path.join(build_dir, ".config")
     make = ["make",  args.make_args, "ARCH=" + args.arch ]
-    makeConfig = make + [ args.kernel_defconfig ] 
     if not os.path.isdir(build_dir):
         sys.exit("error: missing build directory: " + build_dir + ". Did you forget --extract-sources?")
-    print("Configure " + version + " in " + build_dir + ": " + " ".join(shlex.quote(s) for s in makeConfig))
-    with subprocess.Popen(makeConfig, cwd=build_dir) as p:
-        p.wait()
-        if p.returncode:
+    print("Configure " + version + " in " + build_dir + " using " + args.kernel_config)
+    shutil.copyfile(args.kernel_config, configPath)
+    configItems = subprocess.check_output(make + [ "listnewconfig" ], cwd=build_dir).decode('utf-8').strip().splitlines()
+    with open(configPath, "at") as config:
+        for c in configItems:
+            if c.find("CONFIG_") is 0:
+                config.write("# " + c + " is not set\n")
+    with subprocess.Popen(make + [ "oldnoconfig" ], cwd=build_dir) as pMakeOldNoConfig:
+        pMakeOldNoConfig.wait()
+        if pMakeOldNoConfig.returncode:
             sys.exit("error: failed configuring kernel for build")
     print("Build " + version + " in " + build_dir + ": " + " ".join(shlex.quote(s) for s in make))
-    with subprocess.Popen(make, cwd=build_dir) as p:
-        p.wait()
-        if p.returncode:
+    with subprocess.Popen(make, cwd=build_dir) as pMake:
+        pMake.wait()
+        if pMake.returncode:
             sys.exit("error: failed building kernel for build")
     images = [ os.path.join(build_dir, "vmlinux") ]
     images += glob.glob(os.path.join(build_dir, "arch", args.arch, "boot", "*Image"))
@@ -201,9 +207,9 @@ def main():
     parser.add_argument('--plot-unit-name', dest='plot_unit_name',
                         type=str, default="kB",
                         help='plot-unit name (default: %(default)s)')
-    parser.add_argument('--kernel-defconfig', dest='kernel_defconfig',
-                        type=str, default="allnoconfig",
-                        help='kernel defconfig to configure with (default: %(default)s)')
+    parser.add_argument('--kernel-config', dest='kernel_config',
+                        type=str, default="configs/tinyconfig",
+                        help='kernel .config template to use (default: %(default)s)')
     
     args = parser.parse_args()
     
