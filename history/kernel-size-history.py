@@ -121,17 +121,19 @@ def getKernelSizeInformation(args, version):
             sizes[f] = int(values[i])
     return sizes
 
-def newVersionPlot(args, title):
+def newVersionPlot(args, xAxis, title):
     if not hasattr(args, 'noPlots'):
         args.noPlots = 0
-    plt.figure(args.noPlots)
-    xAxis = range(0, len(args.versions))
+    figsize = []
+    for s in args.plot_figsize.split(","):
+        figsize.append(int(s))
+    fig = plt.figure(args.noPlots, figsize=figsize)
     plt.title(title)
     plt.xticks(xAxis, args.versions)
     plt.ylabel(args.plot_unit_name)
     plt.xlabel('Kernel Version')
     args.noPlots += 1
-    return xAxis
+    return fig
 
 def plotAndAnnotate(xPoints, yPoints, label):
     plt.plot(xPoints, yPoints, label=label)
@@ -154,15 +156,19 @@ def plotKernelSizeHistory(args):
         xipRamUse.append((s["bss"] + s["data"]) / args.plot_unit_scale)
         bzRomUse.append(s["bzImage"] / args.plot_unit_scale)
         bzRamUse.append((s["bss"] + s["data"] + s["text"]) / args.plot_unit_scale)
-    xAxis = newVersionPlot(args, "Kernel size history (XIP)")
+    xAxis = range(0, len(args.versions))
+    fXip = newVersionPlot(args, xAxis, "Kernel size history (XIP)")
     plotAndAnnotate(xAxis, xipRomUse, "data+text\n\nROM")
     plotAndAnnotate(xAxis, xipRamUse, "bss+data\n\nRAM")
     plt.ylim(0, plt.ylim(0)[1])
-    xAxis = newVersionPlot(args, "Kernel size history (Compressed kernel image)")
+    fBz = newVersionPlot(args, xAxis, "Kernel size history (Compressed kernel image)")
     plotAndAnnotate(xAxis, bzRomUse, "bzImage\n\nROM")
     plotAndAnnotate(xAxis, bzRamUse, "bss+data+text\n\nRAM")
     plt.ylim(0, plt.ylim(0)[1])
     plt.show()
+    os.makedirs(args.plot_savepath, exist_ok=True)
+    fXip.savefig(os.path.join(args.plot_savepath, "history-xip.png"), transparent=True)
+    fBz.savefig(os.path.join(args.plot_savepath, "history-bz.png"), transparent=True)
     
 def main():
     parser = argparse.ArgumentParser(description='Kernel size history tool-box.')
@@ -211,6 +217,12 @@ def main():
     parser.add_argument('--plot-unit-name', dest='plot_unit_name',
                         type=str, default="kB",
                         help='plot-unit name (default: %(default)s)')
+    parser.add_argument('--plot-figsize', dest='plot_figsize',
+                        type=str, default="12,6",
+                        help='plot figure size (default: %(default)s)')
+    parser.add_argument('--plot-savepath', dest='plot_savepath',
+                        type=str, default="images",
+                        help='plot save path (default: %(default)s)')
     parser.add_argument('--kernel-config', dest='kernel_config',
                         type=str, default="configs/tinyconfig",
                         help='kernel .config template to use (default: %(default)s)')
