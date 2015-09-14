@@ -121,38 +121,47 @@ def getKernelSizeInformation(args, version):
             sizes[f] = int(values[i])
     return sizes
 
-def plotKernelSizeHistory(args):
-    sizes = {}
-    romSizes = []
-    ramSizes = []
-    bzImageSizes = []
-    for v in args.versions:
-        s = getKernelSizeInformation(args, v)
-        romSizes.append((s["data"] + s["text"]) / args.plot_unit_scale)
-        ramSizes.append((s["bss"] + s["data"]) / args.plot_unit_scale)
-        bzImageSizes.append(s["bzImage"] / args.plot_unit_scale)
+def newVersionPlot(args, title):
+    if not hasattr(args, 'noPlots'):
+        args.noPlots = 0
+    plt.figure(args.noPlots)
     xAxis = range(0, len(args.versions))
+    plt.title(title)
     plt.xticks(xAxis, args.versions)
-    rom, = plt.plot(xAxis, romSizes, label='ROM (data + text)')
-    ram, = plt.plot(xAxis, ramSizes, label='RAM (bss + data)'),
-    bzi, = plt.plot(xAxis, bzImageSizes, label='Compressed bzImage')
-    plt.annotate('ROM(data+text)',
-                xy=(xAxis[-1],romSizes[-1]),
-                xytext=(xAxis[-1],romSizes[-1]*1.05),
-                horizontalalignment='right',
-                verticalalignment='bottom')
-    plt.annotate('RAM(bss+data)',
-                xy=(xAxis[-1],ramSizes[-1]),
-                xytext=(xAxis[-1],ramSizes[-1]*1.05),
-                horizontalalignment='right',
-                verticalalignment='bottom')
-    plt.annotate('Compressed',
-                xy=(xAxis[-1],bzImageSizes[-1]),
-                xytext=(xAxis[-1],bzImageSizes[-1]*1.05),
-                horizontalalignment='right',
-                verticalalignment='bottom')
     plt.ylabel(args.plot_unit_name)
     plt.xlabel('Kernel Version')
+    args.noPlots += 1
+    return xAxis
+
+def plotAndAnnotate(xPoints, yPoints, label):
+    plt.plot(xPoints, yPoints, label=label)
+    midPoint=(xPoints[len(xPoints)//2], yPoints[len(yPoints)//2])
+    plt.annotate(label,
+                xy=midPoint,
+                xytext=midPoint,
+                horizontalalignment='center',
+                verticalalignment='center')
+    
+def plotKernelSizeHistory(args):
+    sizes = {}
+    xipRomUse = []
+    xipRamUse = []
+    bzRomUse = []
+    bzRamUse = []
+    for v in args.versions:
+        s = getKernelSizeInformation(args, v)
+        xipRomUse.append((s["data"] + s["text"]) / args.plot_unit_scale)
+        xipRamUse.append((s["bss"] + s["data"]) / args.plot_unit_scale)
+        bzRomUse.append(s["bzImage"] / args.plot_unit_scale)
+        bzRamUse.append((s["bss"] + s["data"] + s["text"]) / args.plot_unit_scale)
+    xAxis = newVersionPlot(args, "Kernel size history (XIP)")
+    plotAndAnnotate(xAxis, xipRomUse, "data+text\n\nROM")
+    plotAndAnnotate(xAxis, xipRamUse, "bss+data\n\nRAM")
+    plt.ylim(0, plt.ylim(0)[1])
+    xAxis = newVersionPlot(args, "Kernel size history (Compressed kernel image)")
+    plotAndAnnotate(xAxis, bzRomUse, "bzImage\n\nROM")
+    plotAndAnnotate(xAxis, bzRamUse, "bss+data+text\n\nRAM")
+    plt.ylim(0, plt.ylim(0)[1])
     plt.show()
     
 def main():
