@@ -7,3 +7,6 @@
 [submodule "demo/onion"]
 	path = demo/onion
 	url = git@github.com:smipi1/onion.git
+[submodule "barebox"]
+	path = barebox
+	url = git://git.pengutronix.de/git/barebox.git
