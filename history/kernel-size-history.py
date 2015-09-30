@@ -218,7 +218,7 @@ def main():
                         type=str, default="kB",
                         help='plot-unit name (default: %(default)s)')
     parser.add_argument('--plot-figsize', dest='plot_figsize',
-                        type=str, default="12,6",
+                        type=str, default="16,7",
                         help='plot figure size (default: %(default)s)')
     parser.add_argument('--plot-savepath', dest='plot_savepath',
                         type=str, default="images",
