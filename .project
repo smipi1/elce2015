@@ -16,8 +16,8 @@
 	</natures>
 	<filteredResources>
 		<filter>
-			<id>1441046617408</id>
-			<name>buildroot</name>
+			<id>1441046585206</id>
+			<name>linux</name>
 			<type>30</type>
 			<matcher>
 				<id>org.eclipse.ui.ide.multiFilter</id>
@@ -25,8 +25,8 @@
 			</matcher>
 		</filter>
 		<filter>
-			<id>1441046585206</id>
-			<name>linux</name>
+			<id>1443702370439</id>
+			<name>buildroot/output</name>
 			<type>30</type>
 			<matcher>
 				<id>org.eclipse.ui.ide.multiFilter</id>
