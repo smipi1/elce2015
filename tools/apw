@@ -1,0 +1,2 @@
+#!/bin/sh
+JAVACMD=/usr/lib/jvm/java-gcj-4.8/bin/java $@
