@@ -1,0 +1,1 @@
+ls -l /dev && mount -t procfs /proc && mkdir -p /dev/shm /dev/pts && mount -a && rm -rf /dev/random && trivia
